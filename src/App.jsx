@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 
 const C = {
   bg: "#10141A",
@@ -19,18 +19,23 @@ const HEAD_FONT = "'Space Grotesk', sans-serif";
 const MONO_FONT = "'IBM Plex Mono', monospace";
 
 const GAMES = [
-  { id: "balloon", num: 1, title: "Balloon Risk", blurb: "Pump each balloon for points — cash out before it pops." },
-  { id: "exchange", num: 2, title: "Money Exchange", blurb: "Decide how much to share with a partner across rounds." },
-  { id: "arrows", num: 3, title: "Arrow Matching", blurb: "Follow the colour rule — middle or side arrows, depending on the set." },
-  { id: "easyhard", num: 4, title: "Easy or Hard", blurb: "Choose between a quick task and a harder, higher-value one." },
-  { id: "memory", num: 5, title: "Memory Cards", blurb: "Watch a sequence light up, then repeat it back." },
-  { id: "faces", num: 6, title: "Face Matching", blurb: "Decide if two expressions show the same emotion." },
-  { id: "sort", num: 7, title: "Card Sort", blurb: "Sort cards by a rule that shifts without warning." },
-  { id: "reaction", num: 8, title: "Reaction Timer", blurb: "Tap the instant the circle turns green." },
-  { id: "stopsignal", num: 9, title: "Stop Signal", blurb: "Respond quickly, but hold back on the stop cue." },
-  { id: "magnitudes", num: 10, title: "Magnitudes", blurb: "Pick the larger number, again and again, at speed." },
-  { id: "sequences", num: 11, title: "Sequences", blurb: "Spot the pattern and predict what comes next." },
-  { id: "keypress", num: 12, title: "Keypresses", blurb: "Tap for one letter, hold back for every other." },
+  { id: "exchange", num: 1, title: "Money Exchange 1", blurb: "Choose how much of $10 to trust to a partner, then reflect on the exchange." },
+  { id: "keypress", num: 2, title: "Keypresses", blurb: "Tap from GO to STOP as quickly as possible, without starting early or continuing late." },
+  { id: "balloon", num: 3, title: "Balloons", blurb: "Pump recurring balloons, then cash out before each hidden pop point." },
+  { id: "exchange2", num: 4, title: "Money Exchange 2", blurb: "Observe one allocation, then make and rate your own give-or-take decision." },
+  { id: "digits", num: 5, title: "Digits", blurb: "Recall forward digit sequences as an adaptive staircase tests your memory span." },
+  { id: "easyhard", num: 6, title: "Easy or Hard", blurb: "Choose a low-effort sure reward or work harder for a larger one with changing odds." },
+  { id: "stop", num: 7, title: "Stop", blurb: "Press for red circles and hold back for green in a fast go/no-go stream." },
+  { id: "cards", num: 8, title: "Cards", blurb: "Draw from four hidden decks and learn which ones help your balance over time." },
+  { id: "arrows", num: 9, title: "Arrows", blurb: "Follow middle or side arrows as a colour cue switches the active rule." },
+  { id: "lengths", num: 10, title: "Lengths", blurb: "Judge subtly short or long cartoon mouths while rewards quietly favour one response." },
+  { id: "towers", num: 11, title: "Towers", blurb: "Move five labelled discs to match a target pattern before time runs out." },
+  { id: "faces", num: 12, title: "Faces", blurb: "Read facial expressions and use short situations to resolve close emotions." },
+  { id: "memory", num: 13, title: "Memory Cards", blurb: "Watch a sequence light up, then repeat it back." },
+  { id: "sort", num: 14, title: "Card Sort", blurb: "Sort cards by a rule that shifts without warning." },
+  { id: "reaction", num: 15, title: "Reaction Timer", blurb: "Tap the instant the circle turns green." },
+  { id: "magnitudes", num: 16, title: "Magnitudes", blurb: "Pick the larger number, again and again, at speed." },
+  { id: "sequences", num: 17, title: "Sequences", blurb: "Spot the pattern and predict what comes next." },
 ];
 
 const BALLOON_TYPES = [
@@ -40,7 +45,6 @@ const BALLOON_TYPES = [
 ];
 const PUMP_VALUE = 5;
 
-const CARD_COLORS = ["#D9694A", "#4FB3A9", "#6FBF73", "#E3B54F"];
 const CARD_SHAPES = ["circle", "square", "triangle", "star"];
 
 const RULE_COLORS = {
@@ -144,6 +148,8 @@ function Shape({ shapeIdx, color, size = 16 }) {
   return <div style={{ color, fontSize: size, lineHeight: 1 }}>★</div>;
 }
 
+const CARD_COLORS = ["#D9694A", "#4FB3A9", "#6FBF73", "#E3B54F"];
+
 function CardFace({ colorIdx, shapeIdx, countIdx }) {
   return (
     <div
@@ -204,15 +210,16 @@ const DECKS = [
 ];
 
 const DISC_DEFS = [
-  { letter: "A", color: CARD_COLORS[0] },
-  { letter: "B", color: CARD_COLORS[1] },
-  { letter: "C", color: CARD_COLORS[2] },
-  { letter: "D", color: CARD_COLORS[3] },
+  { letter: "A", color: "#D9694A" },
+  { letter: "B", color: "#4FB3A9" },
+  { letter: "C", color: "#6FBF73" },
+  { letter: "D", color: "#E3B54F" },
+  { letter: "E", color: "#6C93C7" },
 ];
-const TOWER_CAPACITY = 4;
+const TOWER_CAPACITY = 5;
 
 function randomArrangement() {
-  const discs = [0, 1, 2, 3];
+  const discs = [0, 1, 2, 3, 4];
   for (let i = discs.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [discs[i], discs[j]] = [discs[j], discs[i]];
@@ -240,7 +247,7 @@ function CartoonFace({ width }) {
   );
 }
 
-/* ---------- game 1: balloon risk ---------- */
+/* ---------- game: balloons ---------- */
 
 function BalloonGame({ onBack, onFinish }) {
   const order = useMemo(() => [0, 1, 2, 0, 1, 2], []);
@@ -295,7 +302,7 @@ function BalloonGame({ onBack, onFinish }) {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Balloon Risk" onBack={onBack} />
+      <GameHeader title="Balloons" onBack={onBack} />
       {phase === "instructions" && (
         <InstructionsScreen title="Pump up the balloon" onStart={() => beginRound(0)}>
           You'll see {totalRounds} balloons, one at a time. Each pump adds {PUMP_VALUE} points to that balloon. Cash
@@ -341,7 +348,7 @@ function BalloonGame({ onBack, onFinish }) {
       )}
       {phase === "done" && summary && (
         <DoneScreen
-          title="Balloon Risk complete"
+          title="Balloons complete"
           stats={[
             { value: `${summary.bank}`, label: "Points banked" },
             { value: `${summary.poppedCount}/${totalRounds}`, label: "Balloons popped" },
@@ -353,7 +360,7 @@ function BalloonGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 2: money exchange ---------- */
+/* ---------- game: money exchange 1 ---------- */
 
 function ExchangeGame({ onBack, onFinish }) {
   const TOTAL_ROUNDS = 5;
@@ -396,7 +403,7 @@ function ExchangeGame({ onBack, onFinish }) {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Money Exchange" onBack={onBack} />
+      <GameHeader title="Money Exchange 1" onBack={onBack} />
       {phase === "instructions" && (
         <InstructionsScreen title="Share with your partner" onStart={() => beginRound(0)}>
           Each of {TOTAL_ROUNDS} rounds, you get {ENDOWMENT} points. Decide how much to send to a partner — whatever
@@ -439,7 +446,7 @@ function ExchangeGame({ onBack, onFinish }) {
       )}
       {phase === "done" && summary && (
         <DoneScreen
-          title="Money Exchange complete"
+          title="Money Exchange 1 complete"
           stats={[
             { value: `${summary.total}`, label: "Total points" },
             { value: `${summary.avgSentPct}%`, label: "Avg. sent" },
@@ -451,7 +458,7 @@ function ExchangeGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 3: arrow matching (flanker) ---------- */
+/* ---------- game: arrows ---------- */
 
 function ArrowGame({ onBack, onFinish }) {
   const TOTAL = 18;
@@ -544,7 +551,7 @@ function ArrowGame({ onBack, onFinish }) {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Arrow Matching" onBack={onBack} />
+      <GameHeader title="Arrows" onBack={onBack} />
       {phase === "instructions" && (
         <InstructionsScreen title="Follow the colour rule" onStart={beginGame}>
           <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -628,7 +635,7 @@ function ArrowGame({ onBack, onFinish }) {
       )}
       {phase === "done" && summary && (
         <DoneScreen
-          title="Arrow Matching complete"
+          title="Arrows complete"
           stats={[
             { value: `${summary.accuracy}%`, label: "Accuracy" },
             { value: summary.avgRt ? `${summary.avgRt} ms` : "—", label: "Avg. reaction time" },
@@ -642,7 +649,7 @@ function ArrowGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 4: easy or hard ---------- */
+/* ---------- game: easy or hard ---------- */
 
 function EasyOrHardGame({ onBack, onFinish }) {
   const TOTAL_ROUNDS = 6;
@@ -838,129 +845,7 @@ function EasyOrHardGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 5: memory cards ---------- */
-
-function MemoryGame({ onBack, onFinish }) {
-  const GRID = 9;
-  const MAX_LENGTH = 8;
-  const START_LENGTH = 3;
-  const [phase, setPhase] = useState("instructions");
-  const [sequence, setSequence] = useState([]);
-  const [litIndex, setLitIndex] = useState(-1);
-  const [userInput, setUserInput] = useState([]);
-  const [longest, setLongest] = useState(0);
-  const [roundsCorrect, setRoundsCorrect] = useState(0);
-  const [summary, setSummary] = useState(null);
-  const timeoutsRef = useRef([]);
-
-  const clearTimeouts = () => {
-    timeoutsRef.current.forEach(clearTimeout);
-    timeoutsRef.current = [];
-  };
-
-  const genSeq = (len) => Array.from({ length: len }, () => Math.floor(Math.random() * GRID));
-
-  const playSequence = (seq) => {
-    clearTimeouts();
-    setPhase("showing");
-    setUserInput([]);
-    seq.forEach((cell, i) => {
-      timeoutsRef.current.push(setTimeout(() => setLitIndex(cell), i * 750));
-      timeoutsRef.current.push(setTimeout(() => setLitIndex(-1), i * 750 + 450));
-    });
-    timeoutsRef.current.push(setTimeout(() => setPhase("input"), seq.length * 750 + 200));
-  };
-
-  const beginRound = (len) => {
-    const seq = genSeq(len);
-    setSequence(seq);
-    playSequence(seq);
-  };
-
-  const finishGame = (finalLongest, finalRoundsCorrect) => {
-    setSummary({ longest: finalLongest, roundsCorrect: finalRoundsCorrect });
-    setPhase("done");
-  };
-
-  const clickCell = (i) => {
-    if (phase !== "input") return;
-    const next = [...userInput, i];
-    setUserInput(next);
-    const idx = next.length - 1;
-    if (sequence[idx] !== i) {
-      finishGame(longest, roundsCorrect);
-      return;
-    }
-    if (next.length === sequence.length) {
-      const newLongest = Math.max(longest, sequence.length);
-      const newRoundsCorrect = roundsCorrect + 1;
-      setLongest(newLongest);
-      setRoundsCorrect(newRoundsCorrect);
-      if (sequence.length >= MAX_LENGTH) {
-        finishGame(newLongest, newRoundsCorrect);
-      } else {
-        setPhase("result");
-      }
-    }
-  };
-
-  const nextRound = () => beginRound(sequence.length + 1);
-
-  useEffect(() => () => clearTimeouts(), []);
-
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Memory Cards" onBack={onBack} />
-      {phase === "instructions" && (
-        <InstructionsScreen title="Repeat the pattern" onStart={() => beginRound(START_LENGTH)}>
-          Watch the cards light up in order, then click them back in the same sequence. Each round the sequence gets
-          one card longer — keep going until you slip up.
-        </InstructionsScreen>
-      )}
-      {(phase === "showing" || phase === "input") && (
-        <div className="flex flex-col items-center">
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
-            {phase === "showing" ? "Watch closely..." : `Your turn · ${userInput.length}/${sequence.length}`}
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {Array.from({ length: GRID }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => clickCell(i)}
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 6,
-                  background: litIndex === i ? C.accent : C.surface,
-                  border: `1px solid ${C.border}`,
-                  cursor: phase === "input" ? "pointer" : "default",
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-      {phase === "result" && (
-        <div className="text-center py-10">
-          <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>Nice — sequence of {sequence.length} correct</div>
-          <PrimaryButton onClick={nextRound}>Next sequence</PrimaryButton>
-        </div>
-      )}
-      {phase === "done" && summary && (
-        <DoneScreen
-          title="Memory Cards complete"
-          stats={[
-            { value: `${summary.longest}`, label: "Longest sequence" },
-            { value: `${summary.roundsCorrect}`, label: "Rounds completed" },
-          ]}
-          onBack={() => onFinish(summary)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ---------- game 6: faces ---------- */
+/* ---------- game: faces ---------- */
 
 const EMOTIONS = [
   "Anger",
@@ -974,18 +859,53 @@ const EMOTIONS = [
   "Surprise",
   "Puzzlement",
 ];
-const EMOTION_EMOJI = {
-  Anger: "😠",
-  Determination: "😤",
-  Disgust: "🤢",
-  Fear: "😨",
-  Happiness: "😄",
-  Hope: "🤞",
-  Pain: "😣",
-  Sadness: "😢",
-  Surprise: "😲",
-  Puzzlement: "🤔",
+const EMOTION_FACE = {
+  Anger: { browTilt: 18, browRaise: -4, mouthCurve: -10, mouthOpen: false, eye: "narrow" },
+  Determination: { browTilt: 6, browRaise: -2, mouthCurve: 0, mouthOpen: false, eye: "normal" },
+  Disgust: { browTilt: -10, browRaise: 2, mouthCurve: -6, mouthOpen: false, eye: "narrow", asym: true },
+  Fear: { browTilt: -14, browRaise: 8, mouthCurve: -2, mouthOpen: true, eye: "wide" },
+  Happiness: { browTilt: -4, browRaise: 2, mouthCurve: 16, mouthOpen: false, eye: "normal" },
+  Hope: { browTilt: -8, browRaise: 5, mouthCurve: 8, mouthOpen: false, eye: "normal" },
+  Pain: { browTilt: 10, browRaise: -3, mouthCurve: -12, mouthOpen: false, eye: "shut" },
+  Sadness: { browTilt: -16, browRaise: 3, mouthCurve: -14, mouthOpen: false, eye: "normal" },
+  Surprise: { browTilt: -6, browRaise: 10, mouthCurve: 0, mouthOpen: true, eye: "wide" },
+  Puzzlement: { browTilt: 4, browRaise: 0, mouthCurve: -2, mouthOpen: false, eye: "normal", asym: true },
 };
+
+function IllustratedFace({ emotion, size = 160 }) {
+  const p = EMOTION_FACE[emotion] || EMOTION_FACE.Determination;
+  const browY = 55 - p.browRaise;
+  const tilt = p.browTilt;
+  const leftBrow = `M 42 ${browY + tilt * 0.3} L 62 ${browY - tilt * 0.3}`;
+  const rightBrow = p.asym
+    ? `M 98 ${browY - tilt * 0.5} L 118 ${browY + tilt * 0.1}`
+    : `M 98 ${browY - tilt * 0.3} L 118 ${browY + tilt * 0.3}`;
+  const mouthY = 108;
+  const mouthPath = `M 55 ${mouthY} Q 80 ${mouthY - p.mouthCurve} 105 ${mouthY}`;
+
+  const Eye = ({ x }) => {
+    if (p.eye === "shut") return <line x1={x - 9} y1="78" x2={x + 9} y2="78" stroke="#20242B" strokeWidth="3" strokeLinecap="round" />;
+    if (p.eye === "wide") return <circle cx={x} cy="78" r="8" fill="#20242B" />;
+    if (p.eye === "narrow") return <ellipse cx={x} cy="78" rx="8" ry="3.5" fill="#20242B" />;
+    return <circle cx={x} cy="78" r="6" fill="#20242B" />;
+  };
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 160 160">
+      <circle cx="80" cy="80" r="62" fill="#F2CFA0" stroke="#E0B078" strokeWidth="1.5" />
+      <path d={leftBrow} stroke="#3A2A1E" strokeWidth="4" strokeLinecap="round" fill="none" />
+      <path d={rightBrow} stroke="#3A2A1E" strokeWidth="4" strokeLinecap="round" fill="none" />
+      <Eye x={62} />
+      <Eye x={98} />
+      {p.mouthOpen ? (
+        <ellipse cx="80" cy={mouthY} rx="14" ry="10" fill="#5B2A22" />
+      ) : (
+        <path d={mouthPath} stroke="#5B2A22" strokeWidth="4" strokeLinecap="round" fill="none" />
+      )}
+    </svg>
+  );
+}
+
 const EMOTION_STORY = {
   Anger: "Someone just cut in front of them in a long line.",
   Determination: "They're on the final stretch of a race they've trained months for.",
@@ -1112,7 +1032,9 @@ function FaceGame({ onBack, onFinish }) {
             </div>
             <div style={{ fontFamily: MONO_FONT, fontSize: 12, color: timeLeft <= 3 ? C.danger : C.textMuted }}>{timeLeft}s</div>
           </div>
-          <div style={{ fontSize: 80, marginBottom: display.withStory ? 16 : 32 }}>{EMOTION_EMOJI[display.emotion]}</div>
+          <div style={{ marginBottom: display.withStory ? 16 : 32 }}>
+            <IllustratedFace emotion={display.emotion} size={150} />
+          </div>
           {display.withStory && (
             <div style={{ color: C.textMuted, fontSize: 13.5, textAlign: "center", maxWidth: 380, marginBottom: 28, lineHeight: 1.5 }}>
               {EMOTION_STORY[display.emotion]}
@@ -1155,666 +1077,15 @@ function FaceGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 7: card sort ---------- */
+/* ---------- game: stop ---------- */
 
-function CardSortGame({ onBack, onFinish }) {
-  const TOTAL_TRIALS = 24;
-  const STREAK_TO_SWITCH = 5;
-  const RULES = ["color", "shape", "count"];
+function StopGame({ onBack, onFinish }) {
+  const TOTAL = 30;
+  const GO_PROB = 0.7;
+  const STIM_DURATION = 650;
 
-  const [phase, setPhase] = useState("instructions");
-  const [trialIdx, setTrialIdx] = useState(0);
-  const [rule, setRule] = useState(() => RULES[Math.floor(Math.random() * 3)]);
-  const [streak, setStreak] = useState(0);
-  const [card, setCard] = useState(null);
-  const [feedback, setFeedback] = useState(null);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [switches, setSwitches] = useState(0);
-  const [summary, setSummary] = useState(null);
-
-  const genCard = () => ({
-    colorIdx: Math.floor(Math.random() * 4),
-    shapeIdx: Math.floor(Math.random() * 4),
-    countIdx: Math.floor(Math.random() * 4),
-  });
-
-  const matchIndexFor = (c, r) => (r === "color" ? c.colorIdx : r === "shape" ? c.shapeIdx : c.countIdx);
-
-  const beginGame = () => {
-    setRule(RULES[Math.floor(Math.random() * 3)]);
-    setStreak(0);
-    setCorrectCount(0);
-    setSwitches(0);
-    setTrialIdx(0);
-    setCard(genCard());
-    setFeedback(null);
-    setPhase("playing");
-  };
-
-  const choosePile = (pileIdx) => {
-    if (feedback) return;
-    const correct = pileIdx === matchIndexFor(card, rule);
-    setFeedback(correct ? "correct" : "wrong");
-
-    let newStreak = correct ? streak + 1 : 0;
-    let newRule = rule;
-    let didSwitch = false;
-    if (newStreak >= STREAK_TO_SWITCH) {
-      const options = RULES.filter((r) => r !== rule);
-      newRule = options[Math.floor(Math.random() * options.length)];
-      newStreak = 0;
-      didSwitch = true;
-    }
-
-    const finalCorrectCount = correct ? correctCount + 1 : correctCount;
-    const finalSwitches = didSwitch ? switches + 1 : switches;
-
-    setTimeout(() => {
-      const next = trialIdx + 1;
-      if (next >= TOTAL_TRIALS) {
-        setSummary({
-          accuracy: Math.round((finalCorrectCount / TOTAL_TRIALS) * 100),
-          switches: finalSwitches,
-        });
-        setPhase("done");
-      } else {
-        setCorrectCount(finalCorrectCount);
-        setSwitches(finalSwitches);
-        setTrialIdx(next);
-        setStreak(newStreak);
-        setRule(newRule);
-        setCard(genCard());
-        setFeedback(null);
-      }
-    }, 600);
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Card Sort" onBack={onBack} />
-      {phase === "instructions" && (
-        <InstructionsScreen title="Find the sorting rule" onStart={beginGame}>
-          Sort each card into one of the four piles below. The rule — colour, shape, or count — isn't shown, and it
-          can change without warning. Use the correct / incorrect feedback after each card to work out what matters
-          right now.
-        </InstructionsScreen>
-      )}
-      {phase === "playing" && card && (
-        <div className="flex flex-col items-center">
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>
-            Card {trialIdx + 1} of {TOTAL_TRIALS}
-          </div>
-          <div
-            style={{
-              padding: 20,
-              background: C.surface,
-              border: `1px solid ${C.border}`,
-              borderRadius: 8,
-              marginBottom: 8,
-              minHeight: 80,
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <CardFace colorIdx={card.colorIdx} shapeIdx={card.shapeIdx} countIdx={card.countIdx} />
-          </div>
-          <div
-            style={{
-              height: 20,
-              marginBottom: 16,
-              fontSize: 13,
-              fontWeight: 600,
-              color: feedback === "correct" ? C.good : feedback === "wrong" ? C.danger : "transparent",
-            }}
-          >
-            {feedback === "correct" ? "Correct" : feedback === "wrong" ? "Incorrect" : "—"}
-          </div>
-          <div className="flex gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <button
-                key={i}
-                onClick={() => choosePile(i)}
-                disabled={!!feedback}
-                style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, opacity: feedback ? 0.6 : 1 }}
-              >
-                <CardFace colorIdx={i} shapeIdx={i} countIdx={i} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {phase === "done" && summary && (
-        <DoneScreen
-          title="Card Sort complete"
-          stats={[
-            { value: `${summary.accuracy}%`, label: "Accuracy" },
-            { value: `${summary.switches}`, label: "Rule changes" },
-          ]}
-          onBack={() => onFinish(summary)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ---------- game 8: reaction timer ---------- */
-
-function ReactionTimerGame({ onBack, onFinish }) {
-  const TOTAL = 6;
-  const [phase, setPhase] = useState("instructions");
-  const [trialNum, setTrialNum] = useState(0);
-  const [times, setTimes] = useState([]);
-  const [falseStarts, setFalseStarts] = useState(0);
-  const [lastRt, setLastRt] = useState(null);
-  const [summary, setSummary] = useState(null);
-  const startRef = useRef(0);
-  const timeoutRef = useRef(null);
-
-  const startTrial = (i) => {
-    setTrialNum(i);
-    setPhase("waiting");
-    const delay = 1000 + Math.random() * 2500;
-    timeoutRef.current = setTimeout(() => {
-      startRef.current = performance.now();
-      setPhase("ready");
-    }, delay);
-  };
-
-  const beginGame = () => {
-    setTimes([]);
-    setFalseStarts(0);
-    startTrial(0);
-  };
-
-  const tap = () => {
-    if (phase === "waiting") {
-      clearTimeout(timeoutRef.current);
-      setFalseStarts((f) => f + 1);
-      setPhase("tooSoon");
-      return;
-    }
-    if (phase === "ready") {
-      const rt = Math.round(performance.now() - startRef.current);
-      setLastRt(rt);
-      setTimes((t) => [...t, rt]);
-      setPhase("trialResult");
-    }
-  };
-
-  const afterTrial = () => {
-    const next = trialNum + 1;
-    if (next >= TOTAL) {
-      const avg = Math.round(times.reduce((s, t) => s + t, 0) / times.length);
-      const fastest = Math.min(...times);
-      setSummary({ avg, fastest, falseStarts });
-      setPhase("done");
-    } else {
-      startTrial(next);
-    }
-  };
-
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
-
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Reaction Timer" onBack={onBack} />
-      {phase === "instructions" && (
-        <InstructionsScreen title="Tap the instant it turns green" onStart={beginGame}>
-          Wait for the circle to turn green, then tap it as fast as you can. Tap too soon and you'll need to try that
-          round again. {TOTAL} rounds total.
-        </InstructionsScreen>
-      )}
-      {(phase === "waiting" || phase === "ready") && (
-        <div className="flex flex-col items-center py-10">
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
-            Round {trialNum + 1} of {TOTAL}
-          </div>
-          <div
-            onClick={tap}
-            style={{
-              width: 180,
-              height: 180,
-              borderRadius: "50%",
-              background: phase === "ready" ? C.good : C.surface,
-              border: `2px solid ${phase === "ready" ? C.good : C.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              fontWeight: 600,
-              color: phase === "ready" ? "#0D1116" : C.textMuted,
-              fontSize: 14,
-            }}
-          >
-            {phase === "ready" ? "Tap!" : "Wait..."}
-          </div>
-        </div>
-      )}
-      {phase === "tooSoon" && (
-        <div className="text-center py-10">
-          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 20, color: C.danger }}>Too soon</div>
-          <PrimaryButton onClick={() => startTrial(trialNum)}>Try again</PrimaryButton>
-        </div>
-      )}
-      {phase === "trialResult" && (
-        <div className="text-center py-10">
-          <div style={{ fontFamily: MONO_FONT, fontSize: 32, fontWeight: 600, marginBottom: 24 }}>{lastRt} ms</div>
-          <PrimaryButton onClick={afterTrial}>{trialNum + 1 >= TOTAL ? "See results" : "Next round"}</PrimaryButton>
-        </div>
-      )}
-      {phase === "done" && summary && (
-        <DoneScreen
-          title="Reaction Timer complete"
-          stats={[
-            { value: `${summary.avg} ms`, label: "Average" },
-            { value: `${summary.fastest} ms`, label: "Fastest" },
-            { value: `${summary.falseStarts}`, label: "False starts" },
-          ]}
-          onBack={() => onFinish(summary)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ---------- game 9: stop signal ---------- */
-
-function StopSignalGame({ onBack, onFinish }) {
-  const TOTAL = 20;
-  const STOP_PROB = 0.25;
-  const STOP_DELAY = 250;
-  const RESPONSE_WINDOW = 900;
-
-  const [phase, setPhase] = useState("instructions");
-  const [trialNum, setTrialNum] = useState(0);
-  const [summary, setSummary] = useState(null);
-  const trialsRef = useRef([]);
-  const idxRef = useRef(0);
-  const startRef = useRef(0);
-  const respondedRef = useRef(false);
-  const stopTimerRef = useRef(null);
-  const endTimerRef = useRef(null);
-  const resultsRef = useRef([]);
-
-  const genTrials = () => Array.from({ length: TOTAL }, () => ({ stop: Math.random() < STOP_PROB }));
-
-  const finish = () => {
-    const res = resultsRef.current;
-    const goTrials = res.filter((r) => !r.stop);
-    const stopTrials = res.filter((r) => r.stop);
-    const goAcc = goTrials.length ? Math.round((goTrials.filter((r) => r.outcome === "goHit").length / goTrials.length) * 100) : 0;
-    const stopAcc = stopTrials.length
-      ? Math.round((stopTrials.filter((r) => r.outcome === "stopSuccess").length / stopTrials.length) * 100)
-      : 0;
-    const goHits = goTrials.filter((r) => r.outcome === "goHit" && r.rt !== null);
-    const avgGoRt = goHits.length ? Math.round(goHits.reduce((s, r) => s + r.rt, 0) / goHits.length) : null;
-    setSummary({ goAcc, stopAcc, avgGoRt });
-    setPhase("done");
-  };
-
-  const concludeTrial = (responded) => {
-    if (resultsRef.current[idxRef.current] !== undefined) return;
-    clearTimeout(stopTimerRef.current);
-    clearTimeout(endTimerRef.current);
-    const trial = trialsRef.current[idxRef.current];
-    const rt = responded ? performance.now() - startRef.current : null;
-    let outcome;
-    if (trial.stop) outcome = responded ? "stopFail" : "stopSuccess";
-    else outcome = responded ? "goHit" : "goMiss";
-    resultsRef.current[idxRef.current] = { ...trial, rt, outcome };
-    setPhase("blank");
-    setTimeout(() => {
-      const next = idxRef.current + 1;
-      if (next >= TOTAL) {
-        finish();
-      } else {
-        idxRef.current = next;
-        startTrial(next);
-      }
-    }, 250);
-  };
-
-  const startTrial = (i) => {
-    const trial = trialsRef.current[i];
-    setTrialNum(i);
-    respondedRef.current = false;
-    setPhase("go");
-    startRef.current = performance.now();
-    if (trial.stop) {
-      stopTimerRef.current = setTimeout(() => setPhase("stop"), STOP_DELAY);
-    }
-    endTimerRef.current = setTimeout(() => concludeTrial(false), RESPONSE_WINDOW);
-  };
-
-  const respond = () => {
-    if (respondedRef.current) return;
-    respondedRef.current = true;
-    concludeTrial(true);
-  };
-
-  const beginGame = () => {
-    trialsRef.current = genTrials();
-    idxRef.current = 0;
-    resultsRef.current = [];
-    startTrial(0);
-  };
-
-  useEffect(() => {
-    if (phase !== "go" && phase !== "stop") return;
-    const onKey = (e) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        respond();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [phase]);
-
-  useEffect(
-    () => () => {
-      clearTimeout(stopTimerRef.current);
-      clearTimeout(endTimerRef.current);
-    },
-    []
-  );
-
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Stop Signal" onBack={onBack} />
-      {phase === "instructions" && (
-        <InstructionsScreen title="Go — unless it turns red" onStart={beginGame}>
-          Tap the circle (or press space) as fast as you can every time it's green. If it turns red before you
-          respond, hold back and don't tap. {TOTAL} trials.
-        </InstructionsScreen>
-      )}
-      {(phase === "go" || phase === "stop" || phase === "blank") && (
-        <div className="flex flex-col items-center py-10">
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>
-            Trial {trialNum + 1} of {TOTAL}
-          </div>
-          <div
-            onClick={phase === "go" ? respond : undefined}
-            style={{
-              width: 160,
-              height: 160,
-              borderRadius: "50%",
-              background: phase === "stop" ? C.danger : phase === "go" ? C.good : C.surface,
-              border: `2px solid ${phase === "blank" ? C.border : "transparent"}`,
-              cursor: phase === "go" ? "pointer" : "default",
-            }}
-          />
-        </div>
-      )}
-      {phase === "done" && summary && (
-        <DoneScreen
-          title="Stop Signal complete"
-          stats={[
-            { value: `${summary.goAcc}%`, label: "Go accuracy" },
-            { value: `${summary.stopAcc}%`, label: "Successful stops" },
-            { value: summary.avgGoRt ? `${summary.avgGoRt} ms` : "—", label: "Avg. go RT" },
-          ]}
-          onBack={() => onFinish(summary)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ---------- game 10: magnitudes ---------- */
-
-function MagnitudesGame({ onBack, onFinish }) {
-  const TOTAL = 18;
-  const [phase, setPhase] = useState("instructions");
-  const [display, setDisplay] = useState(null);
-  const [trialNum, setTrialNum] = useState(0);
-  const [summary, setSummary] = useState(null);
-  const trialsRef = useRef([]);
-  const idxRef = useRef(0);
-  const startRef = useRef(0);
-  const responsesRef = useRef([]);
-  const timeoutRef = useRef(null);
-  const answeredRef = useRef(false);
-
-  const genTrials = () =>
-    Array.from({ length: TOTAL }, () => {
-      let a = 1 + Math.floor(Math.random() * 98);
-      let b = 1 + Math.floor(Math.random() * 98);
-      while (b === a) b = 1 + Math.floor(Math.random() * 98);
-      return { a, b, target: a > b ? "left" : "right" };
-    });
-
-  const finish = () => {
-    const resp = responsesRef.current;
-    const answered = resp.filter((r) => r.rt !== null);
-    setSummary({
-      accuracy: Math.round((resp.filter((r) => r.correct).length / resp.length) * 100),
-      avgRt: answered.length ? Math.round(answered.reduce((s, r) => s + r.rt, 0) / answered.length) : null,
-    });
-    setPhase("done");
-  };
-
-  const handleResponse = (dir) => {
-    if (answeredRef.current) return;
-    answeredRef.current = true;
-    clearTimeout(timeoutRef.current);
-    const trial = trialsRef.current[idxRef.current];
-    const rt = dir ? performance.now() - startRef.current : null;
-    responsesRef.current.push({ ...trial, dir, rt, correct: dir === trial.target });
-    setPhase("blank");
-    setTimeout(() => {
-      const next = idxRef.current + 1;
-      if (next >= TOTAL) finish();
-      else {
-        idxRef.current = next;
-        startTrial(next);
-      }
-    }, 200);
-  };
-
-  const startTrial = (i) => {
-    const trial = trialsRef.current[i];
-    setDisplay(trial);
-    setTrialNum(i);
-    setPhase("fixation");
-    setTimeout(() => {
-      answeredRef.current = false;
-      setPhase("stimulus");
-      startRef.current = performance.now();
-      timeoutRef.current = setTimeout(() => handleResponse(null), 1500);
-    }, 350);
-  };
-
-  const beginGame = () => {
-    trialsRef.current = genTrials();
-    idxRef.current = 0;
-    responsesRef.current = [];
-    startTrial(0);
-  };
-
-  useEffect(() => {
-    if (phase !== "stimulus") return;
-    const onKey = (e) => {
-      if (e.key === "ArrowLeft") handleResponse("left");
-      else if (e.key === "ArrowRight") handleResponse("right");
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [phase]);
-
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
-
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Magnitudes" onBack={onBack} />
-      {phase === "instructions" && (
-        <InstructionsScreen title="Pick the larger number" onStart={beginGame}>
-          Two numbers will appear side by side. Click the larger one — or use the left / right arrow keys — as fast
-          as you can, over {TOTAL} trials.
-        </InstructionsScreen>
-      )}
-      {(phase === "fixation" || phase === "stimulus" || phase === "blank") && display && (
-        <div className="flex flex-col items-center">
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>
-            Trial {trialNum + 1} of {TOTAL}
-          </div>
-          <div style={{ height: 70, display: "flex", alignItems: "center", justifyContent: "center", gap: 40, marginBottom: 36 }}>
-            {phase === "fixation" && <div style={{ fontSize: 26, color: C.textMuted }}>+</div>}
-            {phase === "stimulus" && (
-              <>
-                <button
-                  onClick={() => handleResponse("left")}
-                  style={{ fontFamily: MONO_FONT, fontSize: 40, fontWeight: 600, background: "none", border: "none", color: C.text, cursor: "pointer" }}
-                >
-                  {display.a}
-                </button>
-                <button
-                  onClick={() => handleResponse("right")}
-                  style={{ fontFamily: MONO_FONT, fontSize: 40, fontWeight: 600, background: "none", border: "none", color: C.text, cursor: "pointer" }}
-                >
-                  {display.b}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-      {phase === "done" && summary && (
-        <DoneScreen
-          title="Magnitudes complete"
-          stats={[
-            { value: `${summary.accuracy}%`, label: "Accuracy" },
-            { value: summary.avgRt ? `${summary.avgRt} ms` : "—", label: "Avg. reaction time" },
-          ]}
-          onBack={() => onFinish(summary)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ---------- game 11: sequences ---------- */
-
-function SequencesGame({ onBack, onFinish }) {
-  const TOTAL = 8;
-  const [phase, setPhase] = useState("instructions");
-  const [qIdx, setQIdx] = useState(0);
-  const [question, setQuestion] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [startTime, setStartTime] = useState(0);
-  const [times, setTimes] = useState([]);
-  const [summary, setSummary] = useState(null);
-
-  const beginQuestion = (i) => {
-    setQIdx(i);
-    setQuestion(genSequenceQuestion());
-    setSelected(null);
-    setStartTime(performance.now());
-    setPhase("question");
-  };
-
-  const beginGame = () => {
-    setCorrectCount(0);
-    setTimes([]);
-    beginQuestion(0);
-  };
-
-  const answer = (opt) => {
-    if (selected !== null) return;
-    setSelected(opt);
-    if (opt === question.answer) setCorrectCount((c) => c + 1);
-    setTimes((t) => [...t, Math.round(performance.now() - startTime)]);
-    setPhase("feedback");
-  };
-
-  const next = () => {
-    const nextIdx = qIdx + 1;
-    if (nextIdx >= TOTAL) {
-      const avgTime = Math.round(times.reduce((s, t) => s + t, 0) / times.length);
-      setSummary({ correctCount, avgTime });
-      setPhase("done");
-    } else {
-      beginQuestion(nextIdx);
-    }
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Sequences" onBack={onBack} />
-      {phase === "instructions" && (
-        <InstructionsScreen title="What comes next?" onStart={beginGame}>
-          Each round shows a sequence of numbers following a pattern. Pick what comes next from the four options,
-          across {TOTAL} rounds. Take the time you need.
-        </InstructionsScreen>
-      )}
-      {(phase === "question" || phase === "feedback") && question && (
-        <div className="flex flex-col items-center">
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
-            Round {qIdx + 1} of {TOTAL}
-          </div>
-          <div style={{ fontFamily: MONO_FONT, fontSize: 24, fontWeight: 600, marginBottom: 32, letterSpacing: 1 }}>
-            {question.shown.join("  ,  ")}  ,  ?
-          </div>
-          <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
-            {question.options.map((opt, i) => {
-              const isCorrect = phase === "feedback" && opt === question.answer;
-              const isWrongPick = phase === "feedback" && opt === selected && opt !== question.answer;
-              return (
-                <button
-                  key={i}
-                  onClick={() => answer(opt)}
-                  disabled={phase === "feedback"}
-                  style={{
-                    fontFamily: MONO_FONT,
-                    fontSize: 18,
-                    fontWeight: 600,
-                    padding: "14px 0",
-                    background: isCorrect ? C.good : isWrongPick ? C.danger : C.surface,
-                    color: isCorrect || isWrongPick ? "#0D1116" : C.text,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 6,
-                  }}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-          {phase === "feedback" && (
-            <div className="mt-8">
-              <PrimaryButton onClick={next}>{qIdx + 1 >= TOTAL ? "See results" : "Next"}</PrimaryButton>
-            </div>
-          )}
-        </div>
-      )}
-      {phase === "done" && summary && (
-        <DoneScreen
-          title="Sequences complete"
-          stats={[
-            { value: `${summary.correctCount}/${TOTAL}`, label: "Correct" },
-            { value: `${(summary.avgTime / 1000).toFixed(1)}s`, label: "Avg. time" },
-          ]}
-          onBack={() => onFinish(summary)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ---------- game 12: keypresses ---------- */
-
-function KeypressGame({ onBack, onFinish }) {
-  const TOTAL = 24;
-  const GO_LETTER = "M";
-  const NOGO_LETTER = "W";
-  const OTHER_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "K", "L", "N", "P", "R", "S", "T", "V"];
-  const GO_PROB = 0.5;
-  const NOGO_PROB = 0.2;
-  const STIM_DURATION = 700;
-
-  const [phase, setPhase] = useState("instructions");
-  const [letter, setLetter] = useState("");
+  const [phase, setPhase] = useState("instructions"); // instructions, stimulus, blank, done
+  const [color, setColor] = useState(null);
   const [trialNum, setTrialNum] = useState(0);
   const [summary, setSummary] = useState(null);
   const trialsRef = useRef([]);
@@ -1824,23 +1095,18 @@ function KeypressGame({ onBack, onFinish }) {
   const resultsRef = useRef([]);
   const timeoutRef = useRef(null);
 
-  const genTrials = () =>
-    Array.from({ length: TOTAL }, () => {
-      const r = Math.random();
-      if (r < GO_PROB) return { letter: GO_LETTER, isGo: true };
-      if (r < GO_PROB + NOGO_PROB) return { letter: NOGO_LETTER, isGo: false };
-      return { letter: OTHER_LETTERS[Math.floor(Math.random() * OTHER_LETTERS.length)], isGo: false };
-    });
+  const genTrials = () => Array.from({ length: TOTAL }, () => ({ isRed: Math.random() < GO_PROB }));
 
   const finish = () => {
     const res = resultsRef.current;
-    const goTrials = res.filter((r) => r.isGo);
-    const nogoTrials = res.filter((r) => r.letter === NOGO_LETTER);
-    const hits = goTrials.filter((r) => r.responded);
-    const hitRate = goTrials.length ? Math.round((hits.length / goTrials.length) * 100) : 0;
-    const falseAlarms = nogoTrials.filter((r) => r.responded).length;
-    const faRate = nogoTrials.length ? Math.round((falseAlarms / nogoTrials.length) * 100) : 0;
-    const avgRt = hits.length ? Math.round(hits.reduce((s, r) => s + r.rt, 0) / hits.length) : null;
+    const redTrials = res.filter((r) => r.isRed);
+    const greenTrials = res.filter((r) => !r.isRed);
+    const hits = redTrials.filter((r) => r.responded);
+    const hitRate = redTrials.length ? Math.round((hits.length / redTrials.length) * 100) : 0;
+    const falseAlarms = greenTrials.filter((r) => r.responded).length;
+    const faRate = greenTrials.length ? Math.round((falseAlarms / greenTrials.length) * 100) : 0;
+    const timedHits = hits.filter((r) => r.rt !== null);
+    const avgRt = timedHits.length ? Math.round(timedHits.reduce((s, r) => s + r.rt, 0) / timedHits.length) : null;
     setSummary({ hitRate, faRate, avgRt });
     setPhase("done");
   };
@@ -1864,7 +1130,7 @@ function KeypressGame({ onBack, onFinish }) {
 
   const startTrial = (i) => {
     const trial = trialsRef.current[i];
-    setLetter(trial.letter);
+    setColor(trial.isRed ? "red" : "green");
     setTrialNum(i);
     respondedRef.current = false;
     setPhase("stimulus");
@@ -1901,46 +1167,50 @@ function KeypressGame({ onBack, onFinish }) {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Keypresses" onBack={onBack} />
+      <GameHeader title="Stop" onBack={onBack} />
       {phase === "instructions" && (
-        <InstructionsScreen title={`Tap for "${GO_LETTER}", not for "${NOGO_LETTER}"`} onStart={beginGame}>
-          Letters will flash one at a time. Tap the button (or press space) whenever you see{" "}
-          <b style={{ color: C.text }}>{GO_LETTER}</b>. Hold back for <b style={{ color: C.text }}>{NOGO_LETTER}</b>{" "}
-          and every other letter. {TOTAL} letters total.
+        <InstructionsScreen title="Press red, skip green" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "A stream of circles flashes one at a time. Press the button (or space bar) whenever you see a red circle.",
+              "When a green circle appears, hold back — don't press.",
+              "Circles flash briefly and move fast, so stay ready between trials.",
+              `${TOTAL} circles total.`,
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
         </InstructionsScreen>
       )}
       {(phase === "stimulus" || phase === "blank") && (
-        <div className="flex flex-col items-center py-6">
+        <div className="flex flex-col items-center py-10">
           <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>
-            Letter {trialNum + 1} of {TOTAL}
+            Trial {trialNum + 1} of {TOTAL}
           </div>
           <div
+            onClick={phase === "stimulus" ? respond : undefined}
             style={{
-              width: 140,
-              height: 140,
-              borderRadius: 10,
-              background: C.surface,
-              border: `1px solid ${C.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontFamily: MONO_FONT,
-              fontSize: 56,
-              fontWeight: 600,
-              marginBottom: 32,
+              width: 150,
+              height: 150,
+              borderRadius: "50%",
+              background: phase === "stimulus" ? (color === "red" ? C.danger : C.good) : C.surface,
+              border: `2px solid ${phase === "blank" ? C.border : "transparent"}`,
+              cursor: phase === "stimulus" ? "pointer" : "default",
             }}
-          >
-            {phase === "stimulus" ? letter : ""}
-          </div>
-          <SecondaryButton onClick={respond}>Tap</SecondaryButton>
+          />
         </div>
       )}
       {phase === "done" && summary && (
         <DoneScreen
-          title="Keypresses complete"
+          title="Stop complete"
           stats={[
-            { value: `${summary.hitRate}%`, label: `Hit rate (${GO_LETTER})` },
-            { value: `${summary.faRate}%`, label: "False alarms" },
+            { value: `${summary.hitRate}%`, label: "Correct on red" },
+            { value: `${summary.faRate}%`, label: "Pressed on green" },
             { value: summary.avgRt ? `${summary.avgRt} ms` : "—", label: "Avg. reaction time" },
           ]}
           onBack={() => onFinish(summary)}
@@ -1950,7 +1220,156 @@ function KeypressGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 13: money exchange 2 ---------- */
+/* ---------- game: keypresses ---------- */
+
+function KeypressGame({ onBack, onFinish }) {
+  const READY_MS = 1000;
+  const GO_MS = 6000;
+  const STOP_WINDOW_MS = 3000;
+  const [phase, setPhase] = useState("instructions"); // instructions, ready, go, stop, done
+  const [tapCount, setTapCount] = useState(0);
+  const [summary, setSummary] = useState(null);
+  const goStartRef = useRef(0);
+  const tapTimestampsRef = useRef([]);
+  const falseStartsRef = useRef(0);
+  const lateTapsRef = useRef(0);
+  const timeoutsRef = useRef([]);
+  const phaseRef = useRef("instructions");
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  const clearAll = () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+
+  const finish = () => {
+    const taps = tapTimestampsRef.current;
+    const tapRate = +(taps.length / (GO_MS / 1000)).toFixed(1);
+    setSummary({
+      tapCount: taps.length,
+      tapRate,
+      startLatency: taps.length ? Math.round(taps[0]) : null,
+      falseStarts: falseStartsRef.current,
+      lateTaps: lateTapsRef.current,
+    });
+    setPhase("done");
+  };
+
+  const beginGame = () => {
+    tapTimestampsRef.current = [];
+    falseStartsRef.current = 0;
+    lateTapsRef.current = 0;
+    setTapCount(0);
+    setPhase("ready");
+    timeoutsRef.current.push(
+      setTimeout(() => {
+        goStartRef.current = performance.now();
+        setPhase("go");
+        timeoutsRef.current.push(
+          setTimeout(() => {
+            setPhase("stop");
+            timeoutsRef.current.push(setTimeout(finish, STOP_WINDOW_MS));
+          }, GO_MS)
+        );
+      }, READY_MS)
+    );
+  };
+
+  const tap = () => {
+    const p = phaseRef.current;
+    if (p === "ready") {
+      falseStartsRef.current += 1;
+    } else if (p === "go") {
+      tapTimestampsRef.current.push(performance.now() - goStartRef.current);
+      setTapCount((c) => c + 1);
+    } else if (p === "stop") {
+      lateTapsRef.current += 1;
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        tap();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => () => clearAll(), []);
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Keypresses" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Go, then stop" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "When the screen says GO, tap as quickly and steadily as you can — space bar or the on-screen button both work.",
+              "The moment the screen switches to STOP, stop tapping immediately.",
+              "Tapping before GO appears or after STOP appears both count against you, so aim for a clean start and a clean stop.",
+              "The whole round takes about 20 seconds.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
+        </InstructionsScreen>
+      )}
+      {(phase === "ready" || phase === "go" || phase === "stop") && (
+        <div className="flex flex-col items-center py-10">
+          <div
+            onClick={tap}
+            style={{
+              width: 220,
+              height: 220,
+              borderRadius: "50%",
+              background: phase === "go" ? C.good : phase === "stop" ? C.danger : C.surface,
+              border: `2px solid ${phase === "ready" ? C.border : "transparent"}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: 28,
+              letterSpacing: 2,
+              color: phase === "ready" ? C.textMuted : "#0D1116",
+              userSelect: "none",
+            }}
+          >
+            {phase === "ready" ? "READY" : phase === "go" ? "GO" : "STOP"}
+          </div>
+          <div style={{ marginTop: 24, fontFamily: MONO_FONT, fontSize: 13, color: C.textMuted }}>
+            {phase === "go" ? `${tapCount} taps` : phase === "stop" ? "Hold still" : "Get ready..."}
+          </div>
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Keypresses complete"
+          stats={[
+            { value: `${summary.tapRate}/s`, label: "Tap rate during GO" },
+            { value: summary.startLatency !== null ? `${summary.startLatency} ms` : "—", label: "Start latency" },
+            { value: `${summary.falseStarts}`, label: "Early taps" },
+            { value: `${summary.lateTaps}`, label: "Late taps after STOP" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game: money exchange 2 ---------- */
 
 function MoneyExchange2Game({ onBack, onFinish }) {
   const [phase, setPhase] = useState("instructions");
@@ -2098,7 +1517,7 @@ function MoneyExchange2Game({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 14: digits ---------- */
+/* ---------- game: digits ---------- */
 
 function DigitsGame({ onBack, onFinish }) {
   const START_LENGTH = 3;
@@ -2310,7 +1729,7 @@ function DigitsGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 15: cards ---------- */
+/* ---------- game: cards ---------- */
 
 function CardsGame({ onBack, onFinish }) {
   const START_BALANCE = 2000;
@@ -2435,7 +1854,7 @@ function CardsGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 16: towers ---------- */
+/* ---------- game: towers ---------- */
 
 function TowersGame({ onBack, onFinish }) {
   const TIME_LIMIT = 120;
@@ -2640,7 +2059,7 @@ function TowersGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 17: lengths ---------- */
+/* ---------- game: lengths ---------- */
 
 function LengthsGame({ onBack, onFinish }) {
   const TOTAL = 90;
@@ -2785,6 +2204,631 @@ function LengthsGame({ onBack, onFinish }) {
   );
 }
 
+/* ---------- game: memory cards ---------- */
+
+function MemoryGame({ onBack, onFinish }) {
+  const GRID = 9;
+  const MAX_LENGTH = 8;
+  const START_LENGTH = 3;
+  const [phase, setPhase] = useState("instructions");
+  const [sequence, setSequence] = useState([]);
+  const [litIndex, setLitIndex] = useState(-1);
+  const [userInput, setUserInput] = useState([]);
+  const [longest, setLongest] = useState(0);
+  const [roundsCorrect, setRoundsCorrect] = useState(0);
+  const [summary, setSummary] = useState(null);
+  const timeoutsRef = useRef([]);
+
+  const clearTimeouts = () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+
+  const genSeq = (len) => Array.from({ length: len }, () => Math.floor(Math.random() * GRID));
+
+  const playSequence = (seq) => {
+    clearTimeouts();
+    setPhase("showing");
+    setUserInput([]);
+    seq.forEach((cell, i) => {
+      timeoutsRef.current.push(setTimeout(() => setLitIndex(cell), i * 750));
+      timeoutsRef.current.push(setTimeout(() => setLitIndex(-1), i * 750 + 450));
+    });
+    timeoutsRef.current.push(setTimeout(() => setPhase("input"), seq.length * 750 + 200));
+  };
+
+  const beginRound = (len) => {
+    const seq = genSeq(len);
+    setSequence(seq);
+    playSequence(seq);
+  };
+
+  const finishGame = (finalLongest, finalRoundsCorrect) => {
+    setSummary({ longest: finalLongest, roundsCorrect: finalRoundsCorrect });
+    setPhase("done");
+  };
+
+  const clickCell = (i) => {
+    if (phase !== "input") return;
+    const next = [...userInput, i];
+    setUserInput(next);
+    const idx = next.length - 1;
+    if (sequence[idx] !== i) {
+      finishGame(longest, roundsCorrect);
+      return;
+    }
+    if (next.length === sequence.length) {
+      const newLongest = Math.max(longest, sequence.length);
+      const newRoundsCorrect = roundsCorrect + 1;
+      setLongest(newLongest);
+      setRoundsCorrect(newRoundsCorrect);
+      if (sequence.length >= MAX_LENGTH) {
+        finishGame(newLongest, newRoundsCorrect);
+      } else {
+        setPhase("result");
+      }
+    }
+  };
+
+  const nextRound = () => beginRound(sequence.length + 1);
+
+  useEffect(() => () => clearTimeouts(), []);
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Memory Cards" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Repeat the pattern" onStart={() => beginRound(START_LENGTH)}>
+          Watch the cards light up in order, then click them back in the same sequence. Each round the sequence gets
+          one card longer — keep going until you slip up.
+        </InstructionsScreen>
+      )}
+      {(phase === "showing" || phase === "input") && (
+        <div className="flex flex-col items-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
+            {phase === "showing" ? "Watch closely..." : `Your turn · ${userInput.length}/${sequence.length}`}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {Array.from({ length: GRID }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => clickCell(i)}
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 6,
+                  background: litIndex === i ? C.accent : C.surface,
+                  border: `1px solid ${C.border}`,
+                  cursor: phase === "input" ? "pointer" : "default",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {phase === "result" && (
+        <div className="text-center py-10">
+          <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>Nice — sequence of {sequence.length} correct</div>
+          <PrimaryButton onClick={nextRound}>Next sequence</PrimaryButton>
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Memory Cards complete"
+          stats={[
+            { value: `${summary.longest}`, label: "Longest sequence" },
+            { value: `${summary.roundsCorrect}`, label: "Rounds completed" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game: card sort ---------- */
+
+function CardSortGame({ onBack, onFinish }) {
+  const TOTAL_TRIALS = 24;
+  const STREAK_TO_SWITCH = 5;
+  const RULES = ["color", "shape", "count"];
+
+  const [phase, setPhase] = useState("instructions");
+  const [trialIdx, setTrialIdx] = useState(0);
+  const [rule, setRule] = useState(() => RULES[Math.floor(Math.random() * 3)]);
+  const [streak, setStreak] = useState(0);
+  const [card, setCard] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [switches, setSwitches] = useState(0);
+  const [summary, setSummary] = useState(null);
+
+  const genCard = () => ({
+    colorIdx: Math.floor(Math.random() * 4),
+    shapeIdx: Math.floor(Math.random() * 4),
+    countIdx: Math.floor(Math.random() * 4),
+  });
+
+  const matchIndexFor = (c, r) => (r === "color" ? c.colorIdx : r === "shape" ? c.shapeIdx : c.countIdx);
+
+  const beginGame = () => {
+    setRule(RULES[Math.floor(Math.random() * 3)]);
+    setStreak(0);
+    setCorrectCount(0);
+    setSwitches(0);
+    setTrialIdx(0);
+    setCard(genCard());
+    setFeedback(null);
+    setPhase("playing");
+  };
+
+  const choosePile = (pileIdx) => {
+    if (feedback) return;
+    const correct = pileIdx === matchIndexFor(card, rule);
+    setFeedback(correct ? "correct" : "wrong");
+
+    let newStreak = correct ? streak + 1 : 0;
+    let newRule = rule;
+    let didSwitch = false;
+    if (newStreak >= STREAK_TO_SWITCH) {
+      const options = RULES.filter((r) => r !== rule);
+      newRule = options[Math.floor(Math.random() * options.length)];
+      newStreak = 0;
+      didSwitch = true;
+    }
+
+    const finalCorrectCount = correct ? correctCount + 1 : correctCount;
+    const finalSwitches = didSwitch ? switches + 1 : switches;
+
+    setTimeout(() => {
+      const next = trialIdx + 1;
+      if (next >= TOTAL_TRIALS) {
+        setSummary({
+          accuracy: Math.round((finalCorrectCount / TOTAL_TRIALS) * 100),
+          switches: finalSwitches,
+        });
+        setPhase("done");
+      } else {
+        setCorrectCount(finalCorrectCount);
+        setSwitches(finalSwitches);
+        setTrialIdx(next);
+        setStreak(newStreak);
+        setRule(newRule);
+        setCard(genCard());
+        setFeedback(null);
+      }
+    }, 600);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Card Sort" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Find the sorting rule" onStart={beginGame}>
+          Sort each card into one of the four piles below. The rule — colour, shape, or count — isn't shown, and it
+          can change without warning. Use the correct / incorrect feedback after each card to work out what matters
+          right now.
+        </InstructionsScreen>
+      )}
+      {phase === "playing" && card && (
+        <div className="flex flex-col items-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>
+            Card {trialIdx + 1} of {TOTAL_TRIALS}
+          </div>
+          <div
+            style={{
+              padding: 20,
+              background: C.surface,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              marginBottom: 8,
+              minHeight: 80,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <CardFace colorIdx={card.colorIdx} shapeIdx={card.shapeIdx} countIdx={card.countIdx} />
+          </div>
+          <div
+            style={{
+              height: 20,
+              marginBottom: 16,
+              fontSize: 13,
+              fontWeight: 600,
+              color: feedback === "correct" ? C.good : feedback === "wrong" ? C.danger : "transparent",
+            }}
+          >
+            {feedback === "correct" ? "Correct" : feedback === "wrong" ? "Incorrect" : "—"}
+          </div>
+          <div className="flex gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <button
+                key={i}
+                onClick={() => choosePile(i)}
+                disabled={!!feedback}
+                style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, opacity: feedback ? 0.6 : 1 }}
+              >
+                <CardFace colorIdx={i} shapeIdx={i} countIdx={i} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Card Sort complete"
+          stats={[
+            { value: `${summary.accuracy}%`, label: "Accuracy" },
+            { value: `${summary.switches}`, label: "Rule changes" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game: reaction timer ---------- */
+
+function ReactionTimerGame({ onBack, onFinish }) {
+  const TOTAL = 6;
+  const [phase, setPhase] = useState("instructions");
+  const [trialNum, setTrialNum] = useState(0);
+  const [times, setTimes] = useState([]);
+  const [falseStarts, setFalseStarts] = useState(0);
+  const [lastRt, setLastRt] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const startRef = useRef(0);
+  const timeoutRef = useRef(null);
+
+  const startTrial = (i) => {
+    setTrialNum(i);
+    setPhase("waiting");
+    const delay = 1000 + Math.random() * 2500;
+    timeoutRef.current = setTimeout(() => {
+      startRef.current = performance.now();
+      setPhase("ready");
+    }, delay);
+  };
+
+  const beginGame = () => {
+    setTimes([]);
+    setFalseStarts(0);
+    startTrial(0);
+  };
+
+  const tap = () => {
+    if (phase === "waiting") {
+      clearTimeout(timeoutRef.current);
+      setFalseStarts((f) => f + 1);
+      setPhase("tooSoon");
+      return;
+    }
+    if (phase === "ready") {
+      const rt = Math.round(performance.now() - startRef.current);
+      setLastRt(rt);
+      setTimes((t) => [...t, rt]);
+      setPhase("trialResult");
+    }
+  };
+
+  const afterTrial = () => {
+    const next = trialNum + 1;
+    if (next >= TOTAL) {
+      const avg = Math.round(times.reduce((s, t) => s + t, 0) / times.length);
+      const fastest = Math.min(...times);
+      setSummary({ avg, fastest, falseStarts });
+      setPhase("done");
+    } else {
+      startTrial(next);
+    }
+  };
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Reaction Timer" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Tap the instant it turns green" onStart={beginGame}>
+          Wait for the circle to turn green, then tap it as fast as you can. Tap too soon and you'll need to try that
+          round again. {TOTAL} rounds total.
+        </InstructionsScreen>
+      )}
+      {(phase === "waiting" || phase === "ready") && (
+        <div className="flex flex-col items-center py-10">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
+            Round {trialNum + 1} of {TOTAL}
+          </div>
+          <div
+            onClick={tap}
+            style={{
+              width: 180,
+              height: 180,
+              borderRadius: "50%",
+              background: phase === "ready" ? C.good : C.surface,
+              border: `2px solid ${phase === "ready" ? C.good : C.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontWeight: 600,
+              color: phase === "ready" ? "#0D1116" : C.textMuted,
+              fontSize: 14,
+            }}
+          >
+            {phase === "ready" ? "Tap!" : "Wait..."}
+          </div>
+        </div>
+      )}
+      {phase === "tooSoon" && (
+        <div className="text-center py-10">
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 20, color: C.danger }}>Too soon</div>
+          <PrimaryButton onClick={() => startTrial(trialNum)}>Try again</PrimaryButton>
+        </div>
+      )}
+      {phase === "trialResult" && (
+        <div className="text-center py-10">
+          <div style={{ fontFamily: MONO_FONT, fontSize: 32, fontWeight: 600, marginBottom: 24 }}>{lastRt} ms</div>
+          <PrimaryButton onClick={afterTrial}>{trialNum + 1 >= TOTAL ? "See results" : "Next round"}</PrimaryButton>
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Reaction Timer complete"
+          stats={[
+            { value: `${summary.avg} ms`, label: "Average" },
+            { value: `${summary.fastest} ms`, label: "Fastest" },
+            { value: `${summary.falseStarts}`, label: "False starts" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game: magnitudes ---------- */
+
+function MagnitudesGame({ onBack, onFinish }) {
+  const TOTAL = 18;
+  const [phase, setPhase] = useState("instructions");
+  const [display, setDisplay] = useState(null);
+  const [trialNum, setTrialNum] = useState(0);
+  const [summary, setSummary] = useState(null);
+  const trialsRef = useRef([]);
+  const idxRef = useRef(0);
+  const startRef = useRef(0);
+  const responsesRef = useRef([]);
+  const timeoutRef = useRef(null);
+  const answeredRef = useRef(false);
+
+  const genTrials = () =>
+    Array.from({ length: TOTAL }, () => {
+      let a = 1 + Math.floor(Math.random() * 98);
+      let b = 1 + Math.floor(Math.random() * 98);
+      while (b === a) b = 1 + Math.floor(Math.random() * 98);
+      return { a, b, target: a > b ? "left" : "right" };
+    });
+
+  const finish = () => {
+    const resp = responsesRef.current;
+    const answered = resp.filter((r) => r.rt !== null);
+    setSummary({
+      accuracy: Math.round((resp.filter((r) => r.correct).length / resp.length) * 100),
+      avgRt: answered.length ? Math.round(answered.reduce((s, r) => s + r.rt, 0) / answered.length) : null,
+    });
+    setPhase("done");
+  };
+
+  const handleResponse = (dir) => {
+    if (answeredRef.current) return;
+    answeredRef.current = true;
+    clearTimeout(timeoutRef.current);
+    const trial = trialsRef.current[idxRef.current];
+    const rt = dir ? performance.now() - startRef.current : null;
+    responsesRef.current.push({ ...trial, dir, rt, correct: dir === trial.target });
+    setPhase("blank");
+    setTimeout(() => {
+      const next = idxRef.current + 1;
+      if (next >= TOTAL) finish();
+      else {
+        idxRef.current = next;
+        startTrial(next);
+      }
+    }, 200);
+  };
+
+  const startTrial = (i) => {
+    const trial = trialsRef.current[i];
+    setDisplay(trial);
+    setTrialNum(i);
+    setPhase("fixation");
+    setTimeout(() => {
+      answeredRef.current = false;
+      setPhase("stimulus");
+      startRef.current = performance.now();
+      timeoutRef.current = setTimeout(() => handleResponse(null), 1500);
+    }, 350);
+  };
+
+  const beginGame = () => {
+    trialsRef.current = genTrials();
+    idxRef.current = 0;
+    responsesRef.current = [];
+    startTrial(0);
+  };
+
+  useEffect(() => {
+    if (phase !== "stimulus") return;
+    const onKey = (e) => {
+      if (e.key === "ArrowLeft") handleResponse("left");
+      else if (e.key === "ArrowRight") handleResponse("right");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase]);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Magnitudes" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Pick the larger number" onStart={beginGame}>
+          Two numbers will appear side by side. Click the larger one — or use the left / right arrow keys — as fast
+          as you can, over {TOTAL} trials.
+        </InstructionsScreen>
+      )}
+      {(phase === "fixation" || phase === "stimulus" || phase === "blank") && display && (
+        <div className="flex flex-col items-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>
+            Trial {trialNum + 1} of {TOTAL}
+          </div>
+          <div style={{ height: 70, display: "flex", alignItems: "center", justifyContent: "center", gap: 40, marginBottom: 36 }}>
+            {phase === "fixation" && <div style={{ fontSize: 26, color: C.textMuted }}>+</div>}
+            {phase === "stimulus" && (
+              <>
+                <button
+                  onClick={() => handleResponse("left")}
+                  style={{ fontFamily: MONO_FONT, fontSize: 40, fontWeight: 600, background: "none", border: "none", color: C.text, cursor: "pointer" }}
+                >
+                  {display.a}
+                </button>
+                <button
+                  onClick={() => handleResponse("right")}
+                  style={{ fontFamily: MONO_FONT, fontSize: 40, fontWeight: 600, background: "none", border: "none", color: C.text, cursor: "pointer" }}
+                >
+                  {display.b}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Magnitudes complete"
+          stats={[
+            { value: `${summary.accuracy}%`, label: "Accuracy" },
+            { value: summary.avgRt ? `${summary.avgRt} ms` : "—", label: "Avg. reaction time" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game: sequences ---------- */
+
+function SequencesGame({ onBack, onFinish }) {
+  const TOTAL = 8;
+  const [phase, setPhase] = useState("instructions");
+  const [qIdx, setQIdx] = useState(0);
+  const [question, setQuestion] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [startTime, setStartTime] = useState(0);
+  const [times, setTimes] = useState([]);
+  const [summary, setSummary] = useState(null);
+
+  const beginQuestion = (i) => {
+    setQIdx(i);
+    setQuestion(genSequenceQuestion());
+    setSelected(null);
+    setStartTime(performance.now());
+    setPhase("question");
+  };
+
+  const beginGame = () => {
+    setCorrectCount(0);
+    setTimes([]);
+    beginQuestion(0);
+  };
+
+  const answer = (opt) => {
+    if (selected !== null) return;
+    setSelected(opt);
+    if (opt === question.answer) setCorrectCount((c) => c + 1);
+    setTimes((t) => [...t, Math.round(performance.now() - startTime)]);
+    setPhase("feedback");
+  };
+
+  const next = () => {
+    const nextIdx = qIdx + 1;
+    if (nextIdx >= TOTAL) {
+      const avgTime = Math.round(times.reduce((s, t) => s + t, 0) / times.length);
+      setSummary({ correctCount, avgTime });
+      setPhase("done");
+    } else {
+      beginQuestion(nextIdx);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Sequences" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="What comes next?" onStart={beginGame}>
+          Each round shows a sequence of numbers following a pattern. Pick what comes next from the four options,
+          across {TOTAL} rounds. Take the time you need.
+        </InstructionsScreen>
+      )}
+      {(phase === "question" || phase === "feedback") && question && (
+        <div className="flex flex-col items-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
+            Round {qIdx + 1} of {TOTAL}
+          </div>
+          <div style={{ fontFamily: MONO_FONT, fontSize: 24, fontWeight: 600, marginBottom: 32, letterSpacing: 1 }}>
+            {question.shown.join("  ,  ")}  ,  ?
+          </div>
+          <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+            {question.options.map((opt, i) => {
+              const isCorrect = phase === "feedback" && opt === question.answer;
+              const isWrongPick = phase === "feedback" && opt === selected && opt !== question.answer;
+              return (
+                <button
+                  key={i}
+                  onClick={() => answer(opt)}
+                  disabled={phase === "feedback"}
+                  style={{
+                    fontFamily: MONO_FONT,
+                    fontSize: 18,
+                    fontWeight: 600,
+                    padding: "14px 0",
+                    background: isCorrect ? C.good : isWrongPick ? C.danger : C.surface,
+                    color: isCorrect || isWrongPick ? "#0D1116" : C.text,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 6,
+                  }}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+          {phase === "feedback" && (
+            <div className="mt-8">
+              <PrimaryButton onClick={next}>{qIdx + 1 >= TOTAL ? "See results" : "Next"}</PrimaryButton>
+            </div>
+          )}
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Sequences complete"
+          stats={[
+            { value: `${summary.correctCount}/${TOTAL}`, label: "Correct" },
+            { value: `${(summary.avgTime / 1000).toFixed(1)}s`, label: "Avg. time" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ---------- dashboard ---------- */
 
 function GameCard({ game, result, onSelect }) {
@@ -2802,7 +2846,7 @@ function GameCard({ game, result, onSelect }) {
     >
       <div className="flex items-center justify-between">
         <span style={{ fontFamily: MONO_FONT, color: C.textMuted, fontSize: 12 }}>
-          {String(game.num).padStart(2, "0")} / 12
+          {String(game.num).padStart(2, "0")} / {GAMES.length}
         </span>
         {result && <CheckCircle2 size={16} color={C.good} />}
       </div>
@@ -2826,7 +2870,7 @@ function Dashboard({ results, onSelect }) {
           A stand-in for the kind of behavioural games used in some job application screenings — similar mechanics,
           no stakes, nothing recorded or sent anywhere. Not affiliated with pymetrics or any employer.
         </p>
-        <div style={{ marginTop: 16, fontSize: 13, color: C.textMuted }}>{completedCount} of 12 tried</div>
+        <div style={{ marginTop: 16, fontSize: 13, color: C.textMuted }}>{completedCount} of {GAMES.length} tried</div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {GAMES.map((g) => (
@@ -2849,18 +2893,23 @@ export default function App() {
   };
 
   const GAME_COMPONENTS = {
-    balloon: BalloonGame,
     exchange: ExchangeGame,
-    arrows: ArrowGame,
+    keypress: KeypressGame,
+    balloon: BalloonGame,
+    exchange2: MoneyExchange2Game,
+    digits: DigitsGame,
     easyhard: EasyOrHardGame,
-    memory: MemoryGame,
+    stop: StopGame,
+    cards: CardsGame,
+    arrows: ArrowGame,
+    lengths: LengthsGame,
+    towers: TowersGame,
     faces: FaceGame,
+    memory: MemoryGame,
     sort: CardSortGame,
     reaction: ReactionTimerGame,
-    stopsignal: StopSignalGame,
     magnitudes: MagnitudesGame,
     sequences: SequencesGame,
-    keypress: KeypressGame,
   };
 
   const ActiveGame = view !== "dashboard" ? GAME_COMPONENTS[view] : null;
