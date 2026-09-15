@@ -196,6 +196,50 @@ function shuffleArr(arr) {
   return a;
 }
 
+const DECKS = [
+  { reward: 100, penaltyChance: 0.5, penaltyMin: 150, penaltyMax: 350 },
+  { reward: 100, penaltyChance: 0.1, penaltyMin: 1000, penaltyMax: 1500 },
+  { reward: 50, penaltyChance: 0.5, penaltyMin: 25, penaltyMax: 75 },
+  { reward: 50, penaltyChance: 0.1, penaltyMin: 150, penaltyMax: 350 },
+];
+
+const DISC_DEFS = [
+  { letter: "A", color: CARD_COLORS[0] },
+  { letter: "B", color: CARD_COLORS[1] },
+  { letter: "C", color: CARD_COLORS[2] },
+  { letter: "D", color: CARD_COLORS[3] },
+];
+const TOWER_CAPACITY = 4;
+
+function randomArrangement() {
+  const discs = [0, 1, 2, 3];
+  for (let i = discs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [discs[i], discs[j]] = [discs[j], discs[i]];
+  }
+  const towers = [[], [], []];
+  discs.forEach((d) => {
+    const t = Math.floor(Math.random() * 3);
+    towers[t].push(d);
+  });
+  return towers;
+}
+
+function arrangementsEqual(a, b) {
+  return a.every((tower, i) => tower.length === b[i].length && tower.every((d, j) => d === b[i][j]));
+}
+
+function CartoonFace({ width }) {
+  return (
+    <svg width="140" height="140" viewBox="0 0 140 140">
+      <circle cx="70" cy="70" r="60" fill="#F2F0EA" />
+      <circle cx="48" cy="55" r="6" fill="#20242B" />
+      <circle cx="92" cy="55" r="6" fill="#20242B" />
+      <rect x={70 - width / 2} y="92" width={width} height="7" rx="3.5" fill="#20242B" />
+    </svg>
+  );
+}
+
 /* ---------- game 1: balloon risk ---------- */
 
 function BalloonGame({ onBack, onFinish }) {
@@ -916,84 +960,111 @@ function MemoryGame({ onBack, onFinish }) {
   );
 }
 
-/* ---------- game 6: face matching ---------- */
+/* ---------- game 6: faces ---------- */
+
+const EMOTIONS = [
+  "Anger",
+  "Determination",
+  "Disgust",
+  "Fear",
+  "Happiness",
+  "Hope",
+  "Pain",
+  "Sadness",
+  "Surprise",
+  "Puzzlement",
+];
+const EMOTION_EMOJI = {
+  Anger: "😠",
+  Determination: "😤",
+  Disgust: "🤢",
+  Fear: "😨",
+  Happiness: "😄",
+  Hope: "🤞",
+  Pain: "😣",
+  Sadness: "😢",
+  Surprise: "😲",
+  Puzzlement: "🤔",
+};
+const EMOTION_STORY = {
+  Anger: "Someone just cut in front of them in a long line.",
+  Determination: "They're on the final stretch of a race they've trained months for.",
+  Disgust: "They just took a bite of something spoiled.",
+  Fear: "A car swerved into their lane without warning.",
+  Happiness: "They just found out they got the job.",
+  Hope: "The test results come back tomorrow morning.",
+  Pain: "They just stubbed their toe on the doorframe.",
+  Sadness: "Their flight home got cancelled on a holiday.",
+  Surprise: "Friends jumped out yelling 'surprise!'",
+  Puzzlement: "The instructions don't match what's in the box.",
+};
 
 function FaceGame({ onBack, onFinish }) {
-  const FACES = [
-    { emoji: "😀", label: "happy" },
-    { emoji: "😢", label: "sad" },
-    { emoji: "😠", label: "angry" },
-    { emoji: "😲", label: "surprised" },
-    { emoji: "😐", label: "neutral" },
-    { emoji: "😨", label: "afraid" },
-  ];
-  const TOTAL = 14;
+  const TOTAL = 12;
   const [phase, setPhase] = useState("instructions");
   const [display, setDisplay] = useState(null);
   const [trialNum, setTrialNum] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
   const [summary, setSummary] = useState(null);
   const trialsRef = useRef([]);
   const idxRef = useRef(0);
   const startRef = useRef(0);
   const responsesRef = useRef([]);
   const timeoutRef = useRef(null);
+  const tickRef = useRef(null);
   const answeredRef = useRef(false);
 
   const genTrials = () =>
     Array.from({ length: TOTAL }, () => {
-      const same = Math.random() < 0.5;
-      const a = FACES[Math.floor(Math.random() * FACES.length)];
-      let b = a;
-      if (!same) {
-        do {
-          b = FACES[Math.floor(Math.random() * FACES.length)];
-        } while (b.label === a.label);
-      }
-      return { a, b, same };
+      const emotion = EMOTIONS[Math.floor(Math.random() * EMOTIONS.length)];
+      const withStory = Math.random() < 0.5;
+      return { emotion, withStory, limitMs: withStory ? 30000 : 7000 };
     });
 
   const finish = () => {
     const resp = responsesRef.current;
     const avgOf = (arr) => {
-      const f = arr.filter((r) => r.rt !== null);
-      return f.length ? Math.round(f.reduce((s, r) => s + r.rt, 0) / f.length) : null;
+      const a = arr.filter((r) => r.rt !== null);
+      return a.length ? Math.round(a.reduce((s, r) => s + r.rt, 0) / a.length) : null;
     };
     setSummary({
       accuracy: Math.round((resp.filter((r) => r.correct).length / resp.length) * 100),
       avgRt: avgOf(resp),
+      photoAvgRt: avgOf(resp.filter((r) => !r.withStory)),
+      storyAvgRt: avgOf(resp.filter((r) => r.withStory)),
     });
     setPhase("done");
   };
 
-  const handleResponse = (ans) => {
+  const handleResponse = (choice) => {
     if (answeredRef.current) return;
     answeredRef.current = true;
     clearTimeout(timeoutRef.current);
+    clearInterval(tickRef.current);
     const trial = trialsRef.current[idxRef.current];
-    const rt = ans !== null ? performance.now() - startRef.current : null;
-    responsesRef.current.push({ ...trial, ans, rt, correct: ans === trial.same });
-    setPhase("blank");
-    setTimeout(() => {
-      const next = idxRef.current + 1;
-      if (next >= TOTAL) finish();
-      else {
-        idxRef.current = next;
-        startTrial(next);
-      }
-    }, 250);
+    const rt = choice !== null ? performance.now() - startRef.current : null;
+    responsesRef.current.push({ ...trial, choice, rt, correct: choice === trial.emotion });
+    const next = idxRef.current + 1;
+    if (next >= TOTAL) {
+      finish();
+    } else {
+      idxRef.current = next;
+      setTimeout(() => startTrial(next), 200);
+    }
   };
 
   const startTrial = (i) => {
     const trial = trialsRef.current[i];
     setDisplay(trial);
     setTrialNum(i);
-    setPhase("fixation");
-    setTimeout(() => {
-      answeredRef.current = false;
-      setPhase("stimulus");
-      startRef.current = performance.now();
-      timeoutRef.current = setTimeout(() => handleResponse(null), 3000);
-    }, 400);
+    answeredRef.current = false;
+    setPhase("trial");
+    setTimeLeft(Math.round(trial.limitMs / 1000));
+    startRef.current = performance.now();
+    timeoutRef.current = setTimeout(() => handleResponse(null), trial.limitMs);
+    tickRef.current = setInterval(() => {
+      setTimeLeft((t) => Math.max(0, t - 1));
+    }, 1000);
   };
 
   const beginGame = () => {
@@ -1003,47 +1074,79 @@ function FaceGame({ onBack, onFinish }) {
     startTrial(0);
   };
 
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(timeoutRef.current);
+      clearInterval(tickRef.current);
+    },
+    []
+  );
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <GameHeader title="Face Matching" onBack={onBack} />
+      <GameHeader title="Faces" onBack={onBack} />
       {phase === "instructions" && (
-        <InstructionsScreen title="Same or different?" onStart={beginGame}>
-          Two faces will appear side by side. Decide whether they're showing the <b style={{ color: C.text }}>same</b>{" "}
-          emotion or a <b style={{ color: C.text }}>different</b> one, as quickly and accurately as you can, over{" "}
-          {TOTAL} trials.
+        <InstructionsScreen title="Name the emotion" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "Every trial uses the same ten choices: Anger, Determination, Disgust, Fear, Happiness, Hope, Pain, Sadness, Surprise, and Puzzlement.",
+              "Some trials show only a photo. Others add a situation; on those trials, use the written context and the facial expression together.",
+              "Photo-only trials allow 7 seconds. Photo-and-story trials allow 30 seconds.",
+              "Select one emotion label by clicking or tapping it.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
         </InstructionsScreen>
       )}
-      {(phase === "fixation" || phase === "stimulus" || phase === "blank") && display && (
+      {phase === "trial" && display && (
         <div className="flex flex-col items-center">
-          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>
-            Trial {trialNum + 1} of {TOTAL}
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: C.textMuted }}>
+              Trial {trialNum + 1} of {TOTAL}
+            </div>
+            <div style={{ fontFamily: MONO_FONT, fontSize: 12, color: timeLeft <= 3 ? C.danger : C.textMuted }}>{timeLeft}s</div>
           </div>
-          <div style={{ height: 100, display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 36 }}>
-            {phase === "fixation" && <div style={{ fontSize: 26, color: C.textMuted }}>+</div>}
-            {phase === "stimulus" && (
-              <>
-                <div style={{ fontSize: 56 }}>{display.a.emoji}</div>
-                <div style={{ fontSize: 56 }}>{display.b.emoji}</div>
-              </>
-            )}
-          </div>
-          <div
-            className="flex gap-3"
-            style={{ opacity: phase === "stimulus" ? 1 : 0.25, pointerEvents: phase === "stimulus" ? "auto" : "none" }}
-          >
-            <SecondaryButton onClick={() => handleResponse(true)}>Same</SecondaryButton>
-            <SecondaryButton onClick={() => handleResponse(false)}>Different</SecondaryButton>
+          <div style={{ fontSize: 80, marginBottom: display.withStory ? 16 : 32 }}>{EMOTION_EMOJI[display.emotion]}</div>
+          {display.withStory && (
+            <div style={{ color: C.textMuted, fontSize: 13.5, textAlign: "center", maxWidth: 380, marginBottom: 28, lineHeight: 1.5 }}>
+              {EMOTION_STORY[display.emotion]}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2 w-full" style={{ maxWidth: 420 }}>
+            {EMOTIONS.map((e) => (
+              <button
+                key={e}
+                onClick={() => handleResponse(e)}
+                style={{
+                  padding: "10px 12px",
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 6,
+                  color: C.text,
+                  fontSize: 13.5,
+                  textAlign: "left",
+                }}
+              >
+                {e}
+              </button>
+            ))}
           </div>
         </div>
       )}
       {phase === "done" && summary && (
         <DoneScreen
-          title="Face Matching complete"
+          title="Faces complete"
           stats={[
             { value: `${summary.accuracy}%`, label: "Accuracy" },
-            { value: summary.avgRt ? `${summary.avgRt} ms` : "—", label: "Avg. reaction time" },
+            { value: summary.avgRt ? `${(summary.avgRt / 1000).toFixed(1)}s` : "—", label: "Avg. response time" },
+            { value: summary.photoAvgRt ? `${(summary.photoAvgRt / 1000).toFixed(1)}s` : "—", label: "Photo-only avg" },
+            { value: summary.storyAvgRt ? `${(summary.storyAvgRt / 1000).toFixed(1)}s` : "—", label: "Photo+story avg" },
           ]}
           onBack={() => onFinish(summary)}
         />
@@ -1841,6 +1944,841 @@ function KeypressGame({ onBack, onFinish }) {
             { value: summary.avgRt ? `${summary.avgRt} ms` : "—", label: "Avg. reaction time" },
           ]}
           onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game 13: money exchange 2 ---------- */
+
+function MoneyExchange2Game({ onBack, onFinish }) {
+  const [phase, setPhase] = useState("instructions");
+  const [partnerGive, setPartnerGive] = useState(0);
+  const [fairness1, setFairness1] = useState(5);
+  const [round2Amount, setRound2Amount] = useState(0);
+  const [fairness2, setFairness2] = useState(5);
+
+  const beginRound1 = () => {
+    const options = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 7, 8];
+    setPartnerGive(options[Math.floor(Math.random() * options.length)]);
+    setPhase("round1View");
+  };
+
+  const yourBalance1 = 5 + partnerGive;
+  const partnerBalance1 = 10 - partnerGive;
+  const yourBalance2 = 10 - round2Amount;
+  const partnerBalance2 = 5 + round2Amount;
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Money Exchange 2" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Two partners, two decisions" onStart={beginRound1}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "Round 1 uses a fresh partner: you both start with $5, the partner receives an extra $5, allocates a seeded amount to you, and you rate the allocation's fairness from 0 to 10.",
+              "Round 2 uses a new partner: you both start with $5 and you receive the extra $5. Use one control to give $0–$5 or take up to $5 from the partner, in $0.50 steps.",
+              "Rate your Round 2 allocation's fairness from 0 to 10, then review the neutral Fairness / Generosity trait description and select Continue.",
+              "There is no correct answer and this is never scored. Choose the allocation that honestly reflects you.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
+        </InstructionsScreen>
+      )}
+      {phase === "round1View" && (
+        <div className="text-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>Round 1 · Partner A</div>
+          <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.7, marginBottom: 24, maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
+            You each started with $5. Your partner also received a $5 bonus, giving them $10 to work with. They've
+            decided to give you:
+          </div>
+          <div style={{ fontFamily: MONO_FONT, fontSize: 36, fontWeight: 600, marginBottom: 20 }}>${partnerGive.toFixed(2)}</div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 28 }}>
+            You'd end with ${yourBalance1.toFixed(2)} · Partner ends with ${partnerBalance1.toFixed(2)}
+          </div>
+          <PrimaryButton onClick={() => setPhase("round1Rate")}>Continue</PrimaryButton>
+        </div>
+      )}
+      {phase === "round1Rate" && (
+        <div className="text-center">
+          <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 20 }}>How fair was that allocation?</div>
+          <div style={{ fontFamily: MONO_FONT, fontSize: 34, fontWeight: 600, marginBottom: 10 }}>{fairness1}</div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>0 = very unfair · 10 = very fair</div>
+          <input
+            type="range"
+            min="0"
+            max="10"
+            value={fairness1}
+            onChange={(e) => setFairness1(Number(e.target.value))}
+            style={{ width: "100%", accentColor: C.accent, marginBottom: 28 }}
+          />
+          <PrimaryButton onClick={() => setPhase("round2Decide")}>Continue</PrimaryButton>
+        </div>
+      )}
+      {phase === "round2Decide" && (
+        <div className="text-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>Round 2 · Partner B</div>
+          <div style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.7, marginBottom: 20, maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
+            You each started with $5. This time you received the $5 bonus, giving you $10. Decide how much to give
+            to your partner, or take from them.
+          </div>
+          <div style={{ fontFamily: MONO_FONT, fontSize: 30, fontWeight: 600, marginBottom: 6 }}>
+            {round2Amount >= 0 ? `Give $${round2Amount.toFixed(2)}` : `Take $${Math.abs(round2Amount).toFixed(2)}`}
+          </div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>
+            You'd end with ${yourBalance2.toFixed(2)} · Partner ends with ${partnerBalance2.toFixed(2)}
+          </div>
+          <input
+            type="range"
+            min="-5"
+            max="5"
+            step="0.5"
+            value={round2Amount}
+            onChange={(e) => setRound2Amount(Number(e.target.value))}
+            style={{ width: "100%", accentColor: C.accent, marginBottom: 8 }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textMuted, marginBottom: 28 }}>
+            <span>Take $5</span>
+            <span>Give $5</span>
+          </div>
+          <PrimaryButton onClick={() => setPhase("round2Rate")}>Confirm</PrimaryButton>
+        </div>
+      )}
+      {phase === "round2Rate" && (
+        <div className="text-center">
+          <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 20 }}>How fair was your allocation?</div>
+          <div style={{ fontFamily: MONO_FONT, fontSize: 34, fontWeight: 600, marginBottom: 10 }}>{fairness2}</div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>0 = very unfair · 10 = very fair</div>
+          <input
+            type="range"
+            min="0"
+            max="10"
+            value={fairness2}
+            onChange={(e) => setFairness2(Number(e.target.value))}
+            style={{ width: "100%", accentColor: C.accent, marginBottom: 28 }}
+          />
+          <PrimaryButton onClick={() => setPhase("traitInfo")}>Continue</PrimaryButton>
+        </div>
+      )}
+      {phase === "traitInfo" && (
+        <div className="text-center">
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: 24, marginBottom: 28, textAlign: "left" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: C.accent2 }}>Fairness / Generosity</div>
+            <div style={{ fontSize: 13.5, color: C.textMuted, lineHeight: 1.6 }}>
+              This trait reflects how people balance their own interests against another person's when dividing a
+              shared resource. There's a wide, healthy range of approaches — being more self-focused or more
+              generous in a moment like this isn't inherently better or worse, just different.
+            </div>
+          </div>
+          <PrimaryButton onClick={() => setPhase("done")}>Continue</PrimaryButton>
+        </div>
+      )}
+      {phase === "done" && (
+        <DoneScreen
+          title="Money Exchange 2 complete"
+          stats={[
+            {
+              value: round2Amount >= 0 ? `+$${round2Amount.toFixed(2)}` : `-$${Math.abs(round2Amount).toFixed(2)}`,
+              label: "Round 2 allocation",
+            },
+            { value: `${fairness1}/10`, label: "Round 1 fairness rating" },
+            { value: `${fairness2}/10`, label: "Round 2 fairness rating" },
+          ]}
+          onBack={() => onFinish({ partnerGive, fairness1, round2Amount, fairness2 })}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game 14: digits ---------- */
+
+function DigitsGame({ onBack, onFinish }) {
+  const START_LENGTH = 3;
+  const MAX_WRONG = 3;
+  const [phase, setPhase] = useState("instructions");
+  const [sequence, setSequence] = useState([]);
+  const [shownDigit, setShownDigit] = useState(null);
+  const [input, setInput] = useState([]);
+  const [consecutiveWrong, setConsecutiveWrong] = useState(0);
+  const [longestCorrect, setLongestCorrect] = useState(0);
+  const [attempts, setAttempts] = useState(0);
+  const [lastFeedback, setLastFeedback] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const timeoutsRef = useRef([]);
+
+  const clearTimeouts = () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+
+  const genSeq = (len) => Array.from({ length: len }, () => Math.floor(Math.random() * 10));
+
+  const playSequence = (seq) => {
+    clearTimeouts();
+    setPhase("showing");
+    setInput([]);
+    setShownDigit(null);
+    seq.forEach((d, i) => {
+      timeoutsRef.current.push(setTimeout(() => setShownDigit(d), i * 900));
+      timeoutsRef.current.push(setTimeout(() => setShownDigit(null), i * 900 + 600));
+    });
+    timeoutsRef.current.push(setTimeout(() => setPhase("recall"), seq.length * 900 + 200));
+  };
+
+  const startRound = (len) => {
+    const seq = genSeq(len);
+    setSequence(seq);
+    playSequence(seq);
+  };
+
+  const beginGame = () => {
+    setConsecutiveWrong(0);
+    setLongestCorrect(0);
+    setAttempts(0);
+    startRound(START_LENGTH);
+  };
+
+  const pressDigit = (d) => {
+    if (phase !== "recall") return;
+    setInput((inp) => (inp.length >= sequence.length ? inp : [...inp, d]));
+  };
+
+  const backspace = () => {
+    if (phase !== "recall") return;
+    setInput((inp) => inp.slice(0, -1));
+  };
+
+  const submit = () => {
+    if (phase !== "recall" || input.length !== sequence.length) return;
+    const correct = input.every((d, i) => d === sequence[i]);
+    const newAttempts = attempts + 1;
+    setAttempts(newAttempts);
+    if (correct) {
+      const newLongest = Math.max(longestCorrect, sequence.length);
+      setLongestCorrect(newLongest);
+      setConsecutiveWrong(0);
+      setLastFeedback("correct");
+      setTimeout(() => {
+        setLastFeedback(null);
+        startRound(sequence.length + 1);
+      }, 700);
+    } else {
+      const newWrong = consecutiveWrong + 1;
+      setConsecutiveWrong(newWrong);
+      setLastFeedback("wrong");
+      if (newWrong >= MAX_WRONG) {
+        setTimeout(() => {
+          setSummary({ longestCorrect, attempts: newAttempts });
+          setPhase("done");
+        }, 700);
+      } else {
+        setTimeout(() => {
+          setLastFeedback(null);
+          startRound(Math.max(1, sequence.length - 1));
+        }, 700);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (phase !== "recall") return;
+    const onKey = (e) => {
+      if (e.key >= "0" && e.key <= "9") pressDigit(Number(e.key));
+      else if (e.key === "Backspace") backspace();
+      else if (e.key === "Enter") submit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, input, sequence]);
+
+  useEffect(() => () => clearTimeouts(), []);
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Digits" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Remember the digits" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "Watch the digits as they flash one at a time. When the recall field appears, enter every digit in the same order and submit.",
+              "A correct recall makes the next sequence one digit longer. An incorrect recall makes it one digit shorter.",
+              "Recall is forward-only. The game ends after three consecutive incorrect recalls.",
+              "Use the number keys or the on-screen keypad, then press Enter or select Submit.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
+        </InstructionsScreen>
+      )}
+      {phase === "showing" && (
+        <div className="flex flex-col items-center py-16">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>Watch closely...</div>
+          <div
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 10,
+              background: C.surface,
+              border: `1px solid ${C.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: MONO_FONT,
+              fontSize: 56,
+              fontWeight: 600,
+            }}
+          >
+            {shownDigit !== null ? shownDigit : ""}
+          </div>
+        </div>
+      )}
+      {phase === "recall" && (
+        <div className="flex flex-col items-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>Enter the sequence in order</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 24, minHeight: 44 }}>
+            {Array.from({ length: sequence.length }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 40,
+                  height: 44,
+                  borderRadius: 6,
+                  background: C.surface,
+                  border: `1px solid ${lastFeedback === "wrong" ? C.danger : lastFeedback === "correct" ? C.good : C.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: MONO_FONT,
+                  fontSize: 20,
+                  fontWeight: 600,
+                }}
+              >
+                {input[i] !== undefined ? input[i] : ""}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-4" style={{ maxWidth: 220 }}>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
+              <button
+                key={d}
+                onClick={() => pressDigit(d)}
+                style={{ width: 60, height: 48, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: MONO_FONT, fontSize: 18, color: C.text }}
+              >
+                {d}
+              </button>
+            ))}
+            <button onClick={backspace} style={{ width: 60, height: 48, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, fontSize: 13 }}>
+              ⌫
+            </button>
+            <button
+              onClick={() => pressDigit(0)}
+              style={{ width: 60, height: 48, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, fontFamily: MONO_FONT, fontSize: 18, color: C.text }}
+            >
+              0
+            </button>
+            <div />
+          </div>
+          <PrimaryButton onClick={submit} disabled={input.length !== sequence.length}>
+            Submit
+          </PrimaryButton>
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Digits complete"
+          stats={[
+            { value: `${summary.longestCorrect}`, label: "Longest correct span" },
+            { value: `${summary.attempts}`, label: "Rounds attempted" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game 15: cards ---------- */
+
+function CardsGame({ onBack, onFinish }) {
+  const START_BALANCE = 2000;
+  const TOTAL_DRAWS = 80;
+  const [phase, setPhase] = useState("instructions");
+  const [balance, setBalance] = useState(START_BALANCE);
+  const [drawNum, setDrawNum] = useState(0);
+  const [lastDraw, setLastDraw] = useState(null);
+  const [deckCounts, setDeckCounts] = useState([0, 0, 0, 0]);
+  const [summary, setSummary] = useState(null);
+  const lockRef = useRef(false);
+
+  const beginGame = () => {
+    setBalance(START_BALANCE);
+    setDrawNum(0);
+    setDeckCounts([0, 0, 0, 0]);
+    setLastDraw(null);
+    setPhase("playing");
+  };
+
+  const draw = (deckIdx) => {
+    if (lockRef.current) return;
+    lockRef.current = true;
+    const deck = DECKS[deckIdx];
+    const gain = deck.reward;
+    const penaltyHit = Math.random() < deck.penaltyChance;
+    const penalty = penaltyHit ? Math.round(deck.penaltyMin + Math.random() * (deck.penaltyMax - deck.penaltyMin)) : 0;
+    const net = gain - penalty;
+    const newBalance = balance + net;
+    const newCounts = deckCounts.map((v, i) => (i === deckIdx ? v + 1 : v));
+    const nextDrawNum = drawNum + 1;
+    setBalance(newBalance);
+    setDeckCounts(newCounts);
+    setLastDraw({ deckIdx, gain, penalty, net });
+    setDrawNum(nextDrawNum);
+    setPhase("drawResult");
+    setTimeout(() => {
+      lockRef.current = false;
+      if (nextDrawNum >= TOTAL_DRAWS) {
+        setSummary({ finalBalance: newBalance, deckCounts: newCounts });
+        setPhase("done");
+      } else {
+        setPhase("playing");
+      }
+    }, 550);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Cards" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Pick a deck, build your balance" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "You start with $2,000 and make 80 draws. Select any of the four face-down decks by clicking or tapping its position.",
+              "Every card reveals a gain and may reveal a simultaneous penalty. Your running balance updates after each draw.",
+              "The decks have different hidden payout and penalty-frequency patterns. No deck labels, quality hints, per-deck statistics, or mid-game advice are shown.",
+              "Keep choosing until all 80 draws are complete. There is no per-draw time limit.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
+        </InstructionsScreen>
+      )}
+      {(phase === "playing" || phase === "drawResult") && (
+        <div className="flex flex-col items-center">
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: 24 }}>
+            <div style={{ fontSize: 12, color: C.textMuted }}>
+              Draw {Math.min(drawNum + (phase === "playing" ? 1 : 0), TOTAL_DRAWS)} of {TOTAL_DRAWS}
+            </div>
+            <div style={{ fontFamily: MONO_FONT, fontSize: 14, fontWeight: 600 }}>${balance.toLocaleString()}</div>
+          </div>
+          <div className="grid grid-cols-4 gap-3 mb-8 w-full">
+            {[0, 1, 2, 3].map((i) => (
+              <button
+                key={i}
+                onClick={() => draw(i)}
+                disabled={phase !== "playing"}
+                style={{
+                  aspectRatio: "2/3",
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: MONO_FONT,
+                  fontSize: 13,
+                  color: C.textMuted,
+                  opacity: phase === "playing" ? 1 : 0.5,
+                }}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+          <div style={{ height: 40 }}>
+            {phase === "drawResult" && lastDraw && (
+              <div style={{ fontFamily: MONO_FONT, fontSize: 18, fontWeight: 600, color: lastDraw.net >= 0 ? C.good : C.danger }}>
+                {lastDraw.penalty > 0 ? `+$${lastDraw.gain} / -$${lastDraw.penalty}` : `+$${lastDraw.gain}`}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {phase === "done" && summary && (
+        <DoneScreen
+          title="Cards complete"
+          stats={[
+            { value: `$${summary.finalBalance.toLocaleString()}`, label: "Final balance" },
+            { value: `${Math.max(...summary.deckCounts)}`, label: "Most-picked deck count" },
+          ]}
+          onBack={() => onFinish(summary)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game 16: towers ---------- */
+
+function TowersGame({ onBack, onFinish }) {
+  const TIME_LIMIT = 120;
+  const [phase, setPhase] = useState("instructions");
+  const [target, setTarget] = useState(null);
+  const [towers, setTowers] = useState(null);
+  const [initial, setInitial] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [steps, setSteps] = useState(0);
+  const [moveHistory, setMoveHistory] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
+  const [outcome, setOutcome] = useState(null);
+  const intervalRef = useRef(null);
+
+  const beginGame = () => {
+    let start = randomArrangement();
+    let goal = randomArrangement();
+    while (arrangementsEqual(start, goal)) goal = randomArrangement();
+    setInitial(start);
+    setTowers(start.map((t) => [...t]));
+    setTarget(goal);
+    setSelected(null);
+    setSteps(0);
+    setMoveHistory([]);
+    setTimeLeft(TIME_LIMIT);
+    setOutcome(null);
+    setPhase("playing");
+  };
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    intervalRef.current = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(intervalRef.current);
+          setOutcome("timeout");
+          setPhase("done");
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, [phase]);
+
+  useEffect(() => () => clearInterval(intervalRef.current), []);
+
+  const clickTower = (i) => {
+    if (phase !== "playing") return;
+    if (selected === null) {
+      if (towers[i].length > 0) setSelected(i);
+      return;
+    }
+    if (selected === i) {
+      setSelected(null);
+      return;
+    }
+    if (towers[i].length >= TOWER_CAPACITY) {
+      setSelected(null);
+      return;
+    }
+    const newTowers = towers.map((t) => [...t]);
+    const disc = newTowers[selected].pop();
+    newTowers[i].push(disc);
+    setMoveHistory((h) => [...h, { from: selected, to: i }]);
+    setSteps((s) => s + 1);
+    setTowers(newTowers);
+    setSelected(null);
+    if (arrangementsEqual(newTowers, target)) {
+      clearInterval(intervalRef.current);
+      setOutcome("solved");
+      setPhase("done");
+    }
+  };
+
+  const undo = () => {
+    if (moveHistory.length === 0 || phase !== "playing") return;
+    const last = moveHistory[moveHistory.length - 1];
+    const newTowers = towers.map((t) => [...t]);
+    const disc = newTowers[last.to].pop();
+    newTowers[last.from].push(disc);
+    setTowers(newTowers);
+    setMoveHistory((h) => h.slice(0, -1));
+    setSteps((s) => Math.max(0, s - 1));
+    setSelected(null);
+  };
+
+  const reset = () => {
+    if (phase !== "playing") return;
+    setTowers(initial.map((t) => [...t]));
+    setMoveHistory([]);
+    setSteps(0);
+    setSelected(null);
+  };
+
+  const mm = Math.floor(timeLeft / 60);
+  const ss = String(timeLeft % 60).padStart(2, "0");
+
+  const Disc = ({ d }) => (
+    <div
+      style={{
+        width: 52,
+        height: 28,
+        borderRadius: 4,
+        background: DISC_DEFS[d].color,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: MONO_FONT,
+        fontSize: 13,
+        fontWeight: 700,
+        color: "#10141A",
+      }}
+    >
+      {DISC_DEFS[d].letter}
+    </div>
+  );
+
+  const TowerView = ({ stack, onClick, isSelected, small }) => (
+    <button
+      onClick={onClick}
+      style={{
+        width: small ? 60 : 80,
+        height: small ? 100 : 160,
+        background: C.surface,
+        border: `1px solid ${isSelected ? C.accent : C.border}`,
+        borderRadius: 6,
+        display: "flex",
+        flexDirection: "column-reverse",
+        alignItems: "center",
+        gap: 4,
+        padding: 6,
+        cursor: onClick ? "pointer" : "default",
+      }}
+    >
+      {stack.map((d, i) => (
+        <div key={i} style={{ transform: small ? "scale(0.75)" : "none" }}>
+          <Disc d={d} />
+        </div>
+      ))}
+    </button>
+  );
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Towers" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Match the target pattern" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "Match the target pattern before the 2:00 timer reaches zero. The target remains visible throughout the round.",
+              "Only the top disc on a tower can move. Select its tower, then select a different destination tower with a free slot.",
+              "Every successful forward move adds one Step. Undo reverses the most recent move; Reset restores the full starting board.",
+              "Disc letters repeat their colour identity, so the pattern is readable without relying on hue alone.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
+        </InstructionsScreen>
+      )}
+      {phase === "playing" && towers && (
+        <div className="flex flex-col items-center">
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>Target</div>
+          <div className="flex gap-3 mb-8">
+            {target.map((stack, i) => (
+              <TowerView key={i} stack={stack} small />
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: 360, marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: C.textMuted }}>Steps: {steps}</div>
+            <div style={{ fontFamily: MONO_FONT, fontSize: 13, color: timeLeft <= 20 ? C.danger : C.text }}>
+              {mm}:{ss}
+            </div>
+          </div>
+          <div className="flex gap-3 mb-8">
+            {towers.map((stack, i) => (
+              <TowerView key={i} stack={stack} onClick={() => clickTower(i)} isSelected={selected === i} />
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <SecondaryButton onClick={undo}>Undo</SecondaryButton>
+            <SecondaryButton onClick={reset}>Reset</SecondaryButton>
+          </div>
+        </div>
+      )}
+      {phase === "done" && (
+        <DoneScreen
+          title="Towers complete"
+          stats={[
+            { value: outcome === "solved" ? "Matched" : "Time's up", label: "Result" },
+            { value: `${steps}`, label: "Steps taken" },
+          ]}
+          onBack={() => onFinish({ outcome, steps })}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- game 17: lengths ---------- */
+
+function LengthsGame({ onBack, onFinish }) {
+  const TOTAL = 90;
+  const REWARD_PROB = 0.4;
+  const [phase, setPhase] = useState("instructions");
+  const [display, setDisplay] = useState(null);
+  const [trialNum, setTrialNum] = useState(0);
+  const [totalReward, setTotalReward] = useState(0);
+  const trialsRef = useRef([]);
+  const idxRef = useRef(0);
+  const answeredRef = useRef(false);
+  const timeoutRef = useRef(null);
+
+  const genTrials = () =>
+    Array.from({ length: TOTAL }, () => {
+      const category = Math.random() < 0.5 ? "short" : "long";
+      const width = category === "short" ? 18 + Math.random() * 10 : 42 + Math.random() * 14;
+      return { category, width };
+    });
+
+  const startTrial = (i) => {
+    const trial = trialsRef.current[i];
+    setDisplay(trial);
+    setTrialNum(i);
+    answeredRef.current = false;
+    setPhase("flash");
+    timeoutRef.current = setTimeout(() => setPhase("waiting"), 500);
+  };
+
+  const beginGame = () => {
+    trialsRef.current = genTrials();
+    idxRef.current = 0;
+    setTotalReward(0);
+    startTrial(0);
+  };
+
+  const advance = () => {
+    const next = idxRef.current + 1;
+    if (next >= TOTAL) {
+      setPhase("done");
+    } else {
+      idxRef.current = next;
+      startTrial(next);
+    }
+  };
+
+  const handleResponse = (choice) => {
+    if (answeredRef.current) return;
+    answeredRef.current = true;
+    clearTimeout(timeoutRef.current);
+    const trial = trialsRef.current[idxRef.current];
+    const correct = choice === trial.category;
+    const rewarded = correct && Math.random() < REWARD_PROB;
+    if (rewarded) {
+      setTotalReward((r) => +(r + 0.2).toFixed(2));
+      setPhase("reward");
+      timeoutRef.current = setTimeout(advance, 700);
+    } else {
+      setPhase("blank");
+      timeoutRef.current = setTimeout(advance, 350);
+    }
+  };
+
+  useEffect(() => {
+    if (phase !== "waiting") return;
+    const onKey = (e) => {
+      if (e.key === "ArrowLeft") handleResponse("short");
+      else if (e.key === "ArrowRight") handleResponse("long");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase]);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      <GameHeader title="Lengths" onBack={onBack} />
+      {phase === "instructions" && (
+        <InstructionsScreen title="Short or long?" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "A cartoon face flashes briefly. Press Left Arrow if its mouth was SHORT or Right Arrow if it was LONG.",
+              "On touch devices, use the left SHORT and right LONG tap zones after the face disappears.",
+              "Some correct answers show only a +$0.20 reward cue. All unrewarded answers — including correct and incorrect choices — advance silently and identically.",
+              "There is no ✓, ✕, or correctness reveal during play. Complete all 90 trials.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
+        </InstructionsScreen>
+      )}
+      {(phase === "flash" || phase === "waiting" || phase === "reward" || phase === "blank") && display && (
+        <div className="flex flex-col items-center">
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", maxWidth: 380, marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: C.textMuted }}>
+              Trial {trialNum + 1} of {TOTAL}
+            </div>
+            <div style={{ fontFamily: MONO_FONT, fontSize: 12, color: C.textMuted }}>${totalReward.toFixed(2)}</div>
+          </div>
+          <div style={{ height: 140, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 28 }}>
+            {phase === "flash" && <CartoonFace width={display.width} />}
+            {phase === "reward" && <div style={{ fontFamily: MONO_FONT, fontSize: 28, fontWeight: 600, color: C.good }}>+$0.20</div>}
+          </div>
+          <div
+            className="flex gap-3 w-full"
+            style={{ opacity: phase === "waiting" ? 1 : 0.25, pointerEvents: phase === "waiting" ? "auto" : "none" }}
+          >
+            <button
+              onClick={() => handleResponse("short")}
+              className="flex-1"
+              style={{ height: 64, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontSize: 13, fontWeight: 600 }}
+            >
+              SHORT
+            </button>
+            <button
+              onClick={() => handleResponse("long")}
+              className="flex-1"
+              style={{ height: 64, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text, fontSize: 13, fontWeight: 600 }}
+            >
+              LONG
+            </button>
+          </div>
+        </div>
+      )}
+      {phase === "done" && (
+        <DoneScreen
+          title="Lengths complete"
+          stats={[
+            { value: `$${totalReward.toFixed(2)}`, label: "Reward earned" },
+            { value: `${TOTAL}`, label: "Trials completed" },
+          ]}
+          onBack={() => onFinish({ totalReward })}
         />
       )}
     </div>
