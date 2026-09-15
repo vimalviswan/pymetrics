@@ -21,7 +21,7 @@ const MONO_FONT = "'IBM Plex Mono', monospace";
 const GAMES = [
   { id: "balloon", num: 1, title: "Balloon Risk", blurb: "Pump each balloon for points — cash out before it pops." },
   { id: "exchange", num: 2, title: "Money Exchange", blurb: "Decide how much to share with a partner across rounds." },
-  { id: "arrows", num: 3, title: "Arrow Matching", blurb: "React to the middle arrow while ignoring the ones around it." },
+  { id: "arrows", num: 3, title: "Arrow Matching", blurb: "Follow the colour rule — middle or side arrows, depending on the set." },
   { id: "easyhard", num: 4, title: "Easy or Hard", blurb: "Choose between a quick task and a harder, higher-value one." },
   { id: "memory", num: 5, title: "Memory Cards", blurb: "Watch a sequence light up, then repeat it back." },
   { id: "faces", num: 6, title: "Face Matching", blurb: "Decide if two expressions show the same emotion." },
@@ -42,6 +42,13 @@ const PUMP_VALUE = 5;
 
 const CARD_COLORS = ["#D9694A", "#4FB3A9", "#6FBF73", "#E3B54F"];
 const CARD_SHAPES = ["circle", "square", "triangle", "star"];
+
+const RULE_COLORS = {
+  blue: { color: "#2D5FA6", label: "BLUE", shapeIdx: 0 },
+  black: { color: "#15171C", label: "BLACK", shapeIdx: 1 },
+  red: { color: "#C1443A", label: "RED", shapeIdx: 2 },
+};
+const RULE_KEYS = Object.keys(RULE_COLORS);
 
 /* ---------- shared bits ---------- */
 
@@ -403,7 +410,7 @@ function ExchangeGame({ onBack, onFinish }) {
 /* ---------- game 3: arrow matching (flanker) ---------- */
 
 function ArrowGame({ onBack, onFinish }) {
-  const TOTAL = 16;
+  const TOTAL = 18;
   const [phase, setPhase] = useState("instructions");
   const [display, setDisplay] = useState(null);
   const [trialNum, setTrialNum] = useState(0);
@@ -416,10 +423,14 @@ function ArrowGame({ onBack, onFinish }) {
   const answeredRef = useRef(false);
 
   const genTrials = () =>
-    Array.from({ length: TOTAL }, () => ({
-      target: Math.random() < 0.5 ? "left" : "right",
-      congruent: Math.random() < 0.5,
-    }));
+    Array.from({ length: TOTAL }, () => {
+      const ruleKey = RULE_KEYS[Math.floor(Math.random() * RULE_KEYS.length)];
+      const sideDir = Math.random() < 0.5 ? "left" : "right";
+      const congruent = Math.random() < 0.5;
+      const middleDir = congruent ? sideDir : sideDir === "left" ? "right" : "left";
+      const target = ruleKey === "red" ? sideDir : middleDir;
+      return { ruleKey, sideDir, middleDir, congruent, target };
+    });
 
   const finish = () => {
     const resp = responsesRef.current;
@@ -464,7 +475,7 @@ function ArrowGame({ onBack, onFinish }) {
       answeredRef.current = false;
       setPhase("stimulus");
       startRef.current = performance.now();
-      timeoutRef.current = setTimeout(() => handleResponse(null), 1800);
+      timeoutRef.current = setTimeout(() => handleResponse(null), 2200);
     }, 450);
   };
 
@@ -487,21 +498,26 @@ function ArrowGame({ onBack, onFinish }) {
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
-  const Arrow = ({ dir, muted }) =>
-    dir === "left" ? (
-      <ArrowLeft size={32} color={muted ? C.textMuted : C.text} strokeWidth={2.5} />
-    ) : (
-      <ArrowRight size={32} color={muted ? C.textMuted : C.text} strokeWidth={2.5} />
-    );
-
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
       <GameHeader title="Arrow Matching" onBack={onBack} />
       {phase === "instructions" && (
-        <InstructionsScreen title="Follow the centre arrow" onStart={beginGame}>
-          A row of arrows will flash on screen. Respond to the direction of the{" "}
-          <b style={{ color: C.text }}>middle</b> arrow only, ignoring the ones around it — press the left or right
-          arrow key, or tap a button below. Answer as fast and accurately as you can, over {TOTAL} trials.
+        <InstructionsScreen title="Follow the colour rule" onStart={beginGame}>
+          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              "Five arrows appear together. If the set is blue or black, respond to the middle arrow's direction.",
+              "If the set is red, respond to the side arrows' direction.",
+              "Press the left or right arrow key before the set changes. The arrows may agree or point in conflicting directions.",
+              "A distinct shape sits beside every set as a colour-blind-friendly cue. On touch, use the left/right half-width buttons.",
+            ].map((line, i) => (
+              <div key={i} style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, color: C.accent, fontSize: 12, flexShrink: 0, paddingTop: 1 }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
         </InstructionsScreen>
       )}
       {(phase === "fixation" || phase === "stimulus" || phase === "blank") && display && (
@@ -509,28 +525,60 @@ function ArrowGame({ onBack, onFinish }) {
           <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 24 }}>
             Trial {trialNum + 1} of {TOTAL}
           </div>
-          <div style={{ height: 56, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 36 }}>
-            {phase === "fixation" && <div style={{ fontSize: 26, color: C.textMuted }}>+</div>}
-            {phase === "stimulus" && (
-              <div className="flex items-center gap-1">
-                <Arrow dir={display.congruent ? display.target : display.target === "left" ? "right" : "left"} muted />
-                <Arrow dir={display.congruent ? display.target : display.target === "left" ? "right" : "left"} muted />
-                <Arrow dir={display.target} />
-                <Arrow dir={display.congruent ? display.target : display.target === "left" ? "right" : "left"} muted />
-                <Arrow dir={display.congruent ? display.target : display.target === "left" ? "right" : "left"} muted />
+          {phase === "fixation" && (
+            <div style={{ height: 176, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontSize: 26, color: C.textMuted }}>+</div>
+            </div>
+          )}
+          {(phase === "stimulus" || phase === "blank") && (
+            <div
+              style={{
+                background: "#F2F0EA",
+                borderRadius: 10,
+                padding: "28px 24px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 18,
+                width: "100%",
+                maxWidth: 380,
+                opacity: phase === "blank" ? 0 : 1,
+              }}
+            >
+              <div className="flex items-center gap-2">
+                {[0, 1, 2, 3, 4].map((i) => {
+                  const dir = i === 2 ? display.middleDir : display.sideDir;
+                  const ruleInfo = RULE_COLORS[display.ruleKey];
+                  return dir === "left" ? (
+                    <ArrowLeft key={i} size={30} color={ruleInfo.color} strokeWidth={2.75} />
+                  ) : (
+                    <ArrowRight key={i} size={30} color={ruleInfo.color} strokeWidth={2.75} />
+                  );
+                })}
               </div>
-            )}
-          </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Shape shapeIdx={RULE_COLORS[display.ruleKey].shapeIdx} color={RULE_COLORS[display.ruleKey].color} size={14} />
+              </div>
+            </div>
+          )}
           <div
-            className="flex gap-3"
-            style={{ opacity: phase === "stimulus" ? 1 : 0.25, pointerEvents: phase === "stimulus" ? "auto" : "none" }}
+            className="flex gap-3 w-full"
+            style={{ marginTop: 28, opacity: phase === "stimulus" ? 1 : 0.25, pointerEvents: phase === "stimulus" ? "auto" : "none" }}
           >
-            <SecondaryButton onClick={() => handleResponse("left")}>
-              <ArrowLeft size={16} />
-            </SecondaryButton>
-            <SecondaryButton onClick={() => handleResponse("right")}>
-              <ArrowRight size={16} />
-            </SecondaryButton>
+            <button
+              onClick={() => handleResponse("left")}
+              className="flex-1 flex items-center justify-center"
+              style={{ height: 64, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text }}
+            >
+              <ArrowLeft size={22} />
+            </button>
+            <button
+              onClick={() => handleResponse("right")}
+              className="flex-1 flex items-center justify-center"
+              style={{ height: 64, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, color: C.text }}
+            >
+              <ArrowRight size={22} />
+            </button>
           </div>
         </div>
       )}
